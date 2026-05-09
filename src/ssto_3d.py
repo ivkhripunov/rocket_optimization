@@ -157,7 +157,7 @@ class SSTO3D(om.JaxExplicitComponent):
 
 def run_ssto_3d(launch_lat_deg=55.7522, launch_lon_deg=37.6156, launch_alt=0.0,
                 target_alt=400_000.0,
-                m0=117e3, mf_min=100,
+                m0=46e3, mf_min=3e3,
                 thrust_max_N=2.1e6, Isp_s=265.2,
                 num_segments=10, order=3):
     p = om.Problem()
@@ -177,7 +177,7 @@ def run_ssto_3d(launch_lat_deg=55.7522, launch_lon_deg=37.6156, launch_alt=0.0,
 
     phase.set_time_options(
         fix_initial=True,
-        duration_bounds=(50.0, 800.0),
+        duration_bounds=(50.0, 1200),
         duration_ref=ref_duration,
         units='s',
         targets='time'
@@ -212,9 +212,8 @@ def run_ssto_3d(launch_lat_deg=55.7522, launch_lon_deg=37.6156, launch_alt=0.0,
     phase.add_boundary_constraint(
         'r_target',
         loc='final',
-        lower=1,
-        units='m',
-        ref=1e3
+        upper = 100,
+        units='m'
     )
 
     # ---- диагностику — в timeseries ----
@@ -225,7 +224,7 @@ def run_ssto_3d(launch_lat_deg=55.7522, launch_lon_deg=37.6156, launch_alt=0.0,
     # ЦЕЛЬ: максимизировать конечную массу (= минимум расхода)
     # scaler=-1 потому что Dymos минимизирует, а нам нужен максимум
     # =========================================================
-    phase.add_objective('r_target', loc='final')
+    phase.add_objective('time', loc='final')
 
     # ---- driver ----
     p.driver = om.pyOptSparseDriver()

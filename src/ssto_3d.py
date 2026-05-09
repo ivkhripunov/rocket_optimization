@@ -134,7 +134,7 @@ class SSTO3D(om.JaxExplicitComponent):
 
 
 def run_ssto_3d(launch_lat_deg=0, launch_lon_deg=0, launch_alt=0.0,
-                target_alt=200_000.0,
+                target_alt=400_000.0,
                 m0=117_000.0, mf_min=1.0,
                 thrust_max_N=2.1e6, Isp_s=265.2,
                 num_segments=5, order=3):
@@ -154,7 +154,7 @@ def run_ssto_3d(launch_lat_deg=0, launch_lon_deg=0, launch_alt=0.0,
     ref_duration = 200
 
     phase.set_time_options(fix_initial=True,
-                           duration_bounds=(50.0, 400.0),
+                           duration_bounds=(50.0, 800.0),
                            duration_ref=ref_duration,
                            units='s')
 
@@ -172,11 +172,11 @@ def run_ssto_3d(launch_lat_deg=0, launch_lon_deg=0, launch_alt=0.0,
     # ---- управления ----
     for n in ('dir_x', 'dir_y', 'dir_z'):
         phase.add_control(n, opt=True, lower=-1.0, upper=1.0,
-                          continuity=True, rate_continuity=True)
+                          continuity=True)
 
     phase.add_control('throttle', opt=True,
                       lower=0.0, upper=1.0,
-                      continuity=True, rate_continuity=True,
+                      continuity=True,
                       targets=['throttle'])
 
     # ---- констрейнты ----
@@ -246,19 +246,7 @@ def run_ssto_3d(launch_lat_deg=0, launch_lon_deg=0, launch_alt=0.0,
 
     phase.set_control_val('throttle', [1.0, 1.0])
 
-    # phase.set_refine_options(
-    #     refine=True,
-    #     tol=1e-3,
-    #     min_order=3,
-    #     max_order=3,
-    #     smoothness_factor=2.0,
-    # )
-
-    dm.run_problem(
-        p, simulate=True,
-        # refine_method='hp',
-        # refine_iteration_limit=2,
-    )
+    dm.run_problem(p, simulate=True)
 
     sim_db = traj.sim_prob.get_outputs_dir() / 'dymos_simulation.db'
 

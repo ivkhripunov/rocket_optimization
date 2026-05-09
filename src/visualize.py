@@ -171,10 +171,106 @@ def plot_eci_trajectory_3d(sol_db: Path, sim_db: Path = None, output_dir: Path =
     ax.legend(loc='upper left', fontsize=9)
     ax.view_init(elev=25, azim=-50)
 
-    plt.show()
-
     out_dir = Path(output_dir) if output_dir else Path(sol_db).parent
     out_path = out_dir / 'trajectory_3d_eci.png'
+    fig.savefig(out_path, dpi=150, bbox_inches='tight')
+    plt.close(fig)
+    print(f'сохранён: {out_path}')
+
+def plot_eci_trajectory_zoomed(sol_db: Path, sim_db: Path = None, output_dir: Path = None,
+                                lat_pad_deg: float = 3.0, lon_pad_deg: float = 5.0):
+    """Приближённый вид области выведения: только участок поверхности под траекторией."""
+    sol = om.CaseReader(sol_db).get_case('final')
+    sim = om.CaseReader(sim_db).get_case('final') if sim_db and Path(sim_db).exists() else None
+
+    prefix = 'traj.phase0.timeseries.'
+    rx = sol.get_val(f'{prefix}rx').ravel() / 1e3   # м → км
+    ry = sol.get_val(f'{prefix}ry').ravel() / 1e3
+    rz = sol.get_val(f'{prefix}rz').ravel() / 1e3
+
+    R_km = R_EARTH / 1e3
+
+    # ---- широта/долгота подспутниковых точек траектории ----
+    r_mag = np.sqrt(rx * rx + ry * ry + rz * rz)
+    lat_traj = np.arcsin(rz / r_mag)
+    lon_traj = np.arctan2(ry, rx)
+
+    # ---- диапазон сетки с отступом ----
+    lat_pad = np.radians(lat_pad_deg)
+    lon_pad = np.radians(lon_pad_deg)
+    lat_min, lat_max = lat_traj.min() - lat_pad, lat_traj.max() + lat_pad
+    lon_min, lon_max = lon_traj.min() - lon_pad, lon_traj.max() + lon_pad
+
+    fig = plt.figure(figsize=(11, 10))
+    ax = fig.add_subplot(111, projection='3d')
+
+    # ---- сетка широта/долгота на поверхности ----
+    n_par, n_mer, n_smooth = 8, 8, 80
+
+    lon_smooth = np.linspace(lon_min, lon_max, n_smooth)
+    lat_smooth = np.linspace(lat_min, lat_max, n_smooth)
+
+    for lat in np.linspace(lat_min, lat_max, n_par):
+        x = R_km * np.cos(lat) * np.cos(lon_smooth)
+        y = R_km * np.cos(lat) * np.sin(lon_smooth)
+        z = R_km * np.sin(lat) * np.ones_like(lon_smooth)
+        ax.plot(x, y, z, color='steelblue', lw=0.6, alpha=0.7)
+
+    for lon in np.linspace(lon_min, lon_max, n_mer):
+        x = R_km * np.cos(lat_smooth) * np.cos(lon)
+        y = R_km * np.cos(lat_smooth) * np.sin(lon)
+        z = R_km * np.sin(lat_smooth)
+        ax.plot(x, y, z, color='steelblue', lw=0.6, alpha=0.7)
+
+    # ---- полупрозрачная подложка-поверхность для глубины ----
+    LAT, LON = np.meshgrid(np.linspace(lat_min, lat_max, 30),
+                           np.linspace(lon_min, lon_max, 30), indexing='ij')
+    X = R_km * np.cos(LAT) * np.cos(LON)
+    Y = R_km * np.cos(LAT) * np.sin(LON)
+    Z = R_km * np.sin(LAT)
+    ax.plot_surface(X, Y, Z, color='lightskyblue', alpha=0.15,
+                    edgecolor='none', shade=False)
+
+    # ---- сама траектория ----
+    ax.plot(rx, ry, rz, color='tab:orange', lw=2.5, label='Траектория (solution)')
+    ax.scatter(rx[0], ry[0], rz[0], color='green', s=120, depthshade=False,
+               edgecolors='k', linewidths=0.8, label='Старт', zorder=10)
+    ax.scatter(rx[-1], ry[-1], rz[-1], color='red', s=120, depthshade=False,
+               edgecolors='k', linewidths=0.8, label='Орбита', zorder=10)
+
+    if sim:
+        srx = sim.get_val(f'{prefix}rx').ravel() / 1e3
+        sry = sim.get_val(f'{prefix}ry').ravel() / 1e3
+        srz = sim.get_val(f'{prefix}rz').ravel() / 1e3
+        ax.plot(srx, sry, srz, color='tab:blue', lw=1.2, ls='--', alpha=0.8,
+                label='Траектория (simulation)')
+
+    # ---- bounding cube под траекторию + патч поверхности ----
+    all_x = np.concatenate([rx, X.ravel()])
+    all_y = np.concatenate([ry, Y.ravel()])
+    all_z = np.concatenate([rz, Z.ravel()])
+
+    cx = (all_x.min() + all_x.max()) / 2
+    cy = (all_y.min() + all_y.max()) / 2
+    cz = (all_z.min() + all_z.max()) / 2
+    extent = max(all_x.max() - all_x.min(),
+                 all_y.max() - all_y.min(),
+                 all_z.max() - all_z.min()) / 2 * 1.05
+
+    ax.set_xlim(cx - extent, cx + extent)
+    ax.set_ylim(cy - extent, cy + extent)
+    ax.set_zlim(cz - extent, cz + extent)
+    ax.set_box_aspect((1, 1, 1))
+
+    ax.set_xlabel('X (ECI), км')
+    ax.set_ylabel('Y (ECI), км')
+    ax.set_zlabel('Z (ECI), км')
+    ax.set_title('Область выведения (приближённый вид)')
+    ax.legend(loc='upper left', fontsize=9)
+    ax.view_init(elev=20, azim=-60)
+
+    out_dir = Path(output_dir) if output_dir else Path(sol_db).parent
+    out_path = out_dir / 'trajectory_3d_zoomed.png'
     fig.savefig(out_path, dpi=150, bbox_inches='tight')
     plt.close(fig)
     print(f'сохранён: {out_path}')

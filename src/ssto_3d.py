@@ -157,9 +157,9 @@ class SSTO3D(om.JaxExplicitComponent):
 
 def run_ssto_3d(launch_lat_deg=55.7522, launch_lon_deg=37.6156, launch_alt=0.0,
                 target_alt=400_000.0,
-                m0=46e3, mf_min=3e3,
+                m0=117e3, mf_min=100,
                 thrust_max_N=2.1e6, Isp_s=265.2,
-                num_segments=5, order=3):
+                num_segments=10, order=3):
     p = om.Problem()
     traj = dm.Trajectory()
     p.model.add_subsystem('traj', traj)

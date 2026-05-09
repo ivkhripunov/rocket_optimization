@@ -18,7 +18,7 @@ class SSTO3D(om.JaxExplicitComponent):
         self.options.declare('S', types=float, default=7.069)
 
         # Атмосфера
-        self.options.declare('rho_ref', types=float, default=1.225)
+        self.options.declare('rho_ref', types=float, default=0.)
         self.options.declare('h_scale', types=float, default=8.44e3)
 
         # Двигатель: МАКСИМАЛЬНАЯ тяга и Isp
@@ -30,7 +30,7 @@ class SSTO3D(om.JaxExplicitComponent):
 
         # ----- inputs: состояния -----
         for n in ('rx', 'ry', 'rz'):
-            self.add_input(n, val=np.zeros(nn), units='m')
+            self.add_input(n, val=EARTH_RAD * np.zeros(nn), units='m')
         for n in ('vx', 'vy', 'vz'):
             self.add_input(n, val=np.zeros(nn), units='m/s')
 
@@ -91,20 +91,20 @@ class SSTO3D(om.JaxExplicitComponent):
         a_grav_y = -EARTH_MU * ry * inv_r3
         a_grav_z = -EARTH_MU * rz * inv_r3
 
-        # ---- атмосфера и относительная скорость ----
-        rho = rho_ref * jnp.exp(-h / h_scale)
-        v_atm_x = -EARTH_OMEGA * ry
-        v_atm_y = EARTH_OMEGA * rx
-
-        vrx = vx - v_atm_x
-        vry = vy - v_atm_y
-        vrz = vz
-        v_rel = jnp.sqrt(vrx * vrx + vry * vry + vrz * vrz + 1.0)
-
-        a_drag_x = -0.5 * CDA * rho * v_rel * vrx / m
-        a_drag_y = -0.5 * CDA * rho * v_rel * vry / m
-        a_drag_z = -0.5 * CDA * rho * v_rel * vrz / m
-
+        # # ---- атмосфера и относительная скорость ----
+        # rho = rho_ref * jnp.exp(-h / h_scale)
+        # v_atm_x = -EARTH_OMEGA * ry
+        # v_atm_y = EARTH_OMEGA * rx
+        #
+        # vrx = vx - v_atm_x
+        # vry = vy - v_atm_y
+        # vrz = vz
+        # v_rel = jnp.sqrt(vrx * vrx + vry * vry + vrz * vrz + 1.0)
+        #
+        # a_drag_x = -0.5 * CDA * rho * v_rel * vrx / m
+        # a_drag_y = -0.5 * CDA * rho * v_rel * vry / m
+        # a_drag_z = -0.5 * CDA * rho * v_rel * vrz / m
+        #
         # ---- ускорение от тяги (теперь зависит от throttle через F_T) ----
         a_thrust_x = (F_T / m) * dx
         a_thrust_y = (F_T / m) * dy
@@ -114,9 +114,9 @@ class SSTO3D(om.JaxExplicitComponent):
         rxdot = vx
         rydot = vy
         rzdot = vz
-        vxdot = a_grav_x + a_drag_x + a_thrust_x
-        vydot = a_grav_y + a_drag_y + a_thrust_y
-        vzdot = a_grav_z + a_drag_z + a_thrust_z
+        vxdot = a_grav_x + a_thrust_x
+        vydot = a_grav_y + a_thrust_y
+        vzdot = a_grav_z + a_thrust_z
         # массовый расход теперь переменный по узлам (зависит от throttle)
         mdot = -F_T / (Isp * G0)
 
@@ -133,11 +133,11 @@ class SSTO3D(om.JaxExplicitComponent):
                 r_mag, v_mag, v_radial, dir_norm_sq, h, thrust_actual)
 
 
-def run_ssto_3d(launch_lat_deg=28.5, launch_lon_deg=-80.5, launch_alt=0.0,
+def run_ssto_3d(launch_lat_deg=0, launch_lon_deg=0, launch_alt=0.0,
                 target_alt=200_000.0,
                 m0=117_000.0, mf_min=1.0,
                 thrust_max_N=2.1e6, Isp_s=265.2,
-                num_segments=20, order=3):
+                num_segments=15, order=3):
     p = om.Problem()
     traj = dm.Trajectory()
     p.model.add_subsystem('traj', traj)
@@ -148,12 +148,14 @@ def run_ssto_3d(launch_lat_deg=28.5, launch_lon_deg=-80.5, launch_alt=0.0,
         transcription=dm.GaussLobatto(num_segments=num_segments,
                                       order=order, compressed=True),
     )
+
     traj.add_phase('phase0', phase)
 
     ref_duration = 500
 
     phase.set_time_options(fix_initial=True,
-                           fix_duration=True,
+                           duration_bounds=(50.0, 1000.0),  # ← диапазон, а не фикс
+                           duration_ref=ref_duration,
                            units='s')
 
     # ---- состояния ----
@@ -180,6 +182,8 @@ def run_ssto_3d(launch_lat_deg=28.5, launch_lon_deg=-80.5, launch_alt=0.0,
     # ---- констрейнты ----
     phase.add_path_constraint('dir_norm_sq', equals=1.0, ref=1.0)
 
+    phase.add_path_constraint('h', lower=0.)
+
     target_radius = EARTH_RAD + target_alt
     target_speed = float(np.sqrt(EARTH_MU / target_radius))
 
@@ -187,7 +191,7 @@ def run_ssto_3d(launch_lat_deg=28.5, launch_lon_deg=-80.5, launch_alt=0.0,
                                   equals=target_radius, ref=target_radius)
     phase.add_boundary_constraint('v_mag', loc='final',
                                   equals=target_speed, ref=target_speed)
-    phase.add_boundary_constraint('v_radial', loc='final', upper=100.0)
+    phase.add_boundary_constraint('v_radial', loc='final', lower=-10.0, upper=10.0)
 
     # ---- диагностику — в timeseries ----
     for n in ('r_mag', 'v_mag', 'v_radial', 'dir_norm_sq', 'h', 'thrust_actual'):
@@ -202,7 +206,8 @@ def run_ssto_3d(launch_lat_deg=28.5, launch_lon_deg=-80.5, launch_alt=0.0,
     # ---- driver ----
     p.driver = om.pyOptSparseDriver()
     p.driver.options['optimizer'] = 'IPOPT'
-    p.driver.opt_settings['tol'] = 1e-6
+    p.driver.opt_settings['tol'] = 1e-4
+    p.driver.opt_settings['max_iter'] = 500
     p.driver.declare_coloring()
 
     p.model.linear_solver = om.DirectSolver()
@@ -224,7 +229,7 @@ def run_ssto_3d(launch_lat_deg=28.5, launch_lon_deg=-80.5, launch_alt=0.0,
 
     zenith0 = r0_eci / np.linalg.norm(r0_eci)
 
-    phase.set_time_val(initial=0.0, duration=300.0)
+    phase.set_time_val(initial=0.0, duration=ref_duration, units='s')
 
     phase.set_state_val('rx', [r0_eci[0], rf_eci[0]])
     phase.set_state_val('ry', [r0_eci[1], rf_eci[1]])
@@ -241,8 +246,19 @@ def run_ssto_3d(launch_lat_deg=28.5, launch_lon_deg=-80.5, launch_alt=0.0,
 
     phase.set_control_val('throttle', [1.0, 1.0])
 
-    # ---- запуск ----
-    dm.run_problem(p, simulate=True)
+    phase.set_refine_options(
+        refine=False,
+        tol=1e-3,
+        min_order=3,
+        max_order=3,
+        smoothness_factor=2.0,
+    )
+
+    dm.run_problem(
+        p, simulate=True,
+        refine_method='hp',
+        refine_iteration_limit=3,
+    )
 
     sim_db = traj.sim_prob.get_outputs_dir() / 'dymos_simulation.db'
 

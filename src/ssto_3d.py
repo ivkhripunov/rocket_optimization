@@ -3,7 +3,7 @@ import dymos as dm
 import numpy as np
 import jax.numpy as jnp
 
-from src.frame_converter import EARTH_RAD, EARTH_OMEGA, geographic_to_cartesian
+from src.frame_converter import EARTH_RAD, EARTH_OMEGA, geographic_to_cartesian, ecef_to_eci
 
 EARTH_MU = 3.986004418e14
 G0 = 9.80665
@@ -90,7 +90,7 @@ class SSTO3D(om.JaxExplicitComponent):
         vrx = vx - v_atm_x
         vry = vy - v_atm_y
         vrz = vz
-        v_rel = jnp.sqrt(vrx * vrx + vry * vry + vrz * vrz + 1.0)  # +1 м²/с² сглаживание
+        v_rel = jnp.sqrt(vrx * vrx + vry * vry + vrz * vrz + 1.0)
 
         a_drag_x = -0.5 * CDA * rho * v_rel * vrx / m
         a_drag_y = -0.5 * CDA * rho * v_rel * vry / m
@@ -124,7 +124,7 @@ class SSTO3D(om.JaxExplicitComponent):
 
 def run_ssto_3d(launch_lat_deg=28.5, launch_lon_deg=-80.5, launch_alt=0.0,
                 target_alt=200_000.0,
-                m0=117_000.0, mf_min=1.0,
+                m0=117_000.0, mf_min=1000.0,
                 thrust_N=2.1e6, Isp_s=265.2,
                 num_segments=20, order=3,
                 duration_guess=200.0):
@@ -140,13 +140,13 @@ def run_ssto_3d(launch_lat_deg=28.5, launch_lon_deg=-80.5, launch_alt=0.0,
     )
     traj.add_phase('phase0', phase)
 
-    # ---- время ----
+    ref_duration = 500
+
     phase.set_time_options(fix_initial=True,
                            duration_bounds=(50.0, 1000.0),
-                           duration_ref=500.0,
+                           duration_ref=ref_duration,
                            units='s')
 
-    # ---- состояния ----
     for n in ('rx', 'ry', 'rz'):
         phase.add_state(n, rate_source=n + 'dot', fix_initial=True,
                         units='m', ref=EARTH_RAD, defect_ref=1.0e5)
@@ -157,15 +157,12 @@ def run_ssto_3d(launch_lat_deg=28.5, launch_lon_deg=-80.5, launch_alt=0.0,
                     lower=mf_min, units='kg',
                     ref=1.0e5, defect_ref=1.0e3)
 
-    # ---- управление: вектор направления тяги ----
     for n in ('dir_x', 'dir_y', 'dir_z'):
         phase.add_control(n, opt=True, lower=-1.0, upper=1.0,
                           continuity=True, rate_continuity=True)
 
-    # ---- единичность вектора направления (path-constraint) ----
     phase.add_path_constraint('dir_norm_sq', equals=1.0, ref=1.0)
 
-    # ---- условия выхода на круговую орбиту ----
     target_radius = EARTH_RAD + target_alt
     target_speed = float(np.sqrt(EARTH_MU / target_radius))
 
@@ -173,9 +170,10 @@ def run_ssto_3d(launch_lat_deg=28.5, launch_lon_deg=-80.5, launch_alt=0.0,
                                   equals=target_radius, ref=target_radius)
     phase.add_boundary_constraint('v_mag', loc='final',
                                   equals=target_speed, ref=target_speed)
-
+    phase.add_boundary_constraint('v_radial', loc='final', upper=100.0)
+    
     # ---- диагностику — в timeseries для графиков ----
-    for n in ('r_mag', 'v_mag', 'v_radial', 'dir_norm_sq'):
+    for n in ('r_mag', 'v_mag', 'v_radial', 'dir_norm_sq', 'h'):
         phase.add_timeseries_output(n)
 
     phase.add_objective('time', loc='final', scaler=0.01)
@@ -195,11 +193,12 @@ def run_ssto_3d(launch_lat_deg=28.5, launch_lon_deg=-80.5, launch_alt=0.0,
     lat0 = np.deg2rad(launch_lat_deg)
     lon0 = np.deg2rad(launch_lon_deg)
 
-    r0_eci = geographic_to_cartesian(lat0, lon0, launch_alt)
+    x0_ecef, y0_ecef, z0_ecef = geographic_to_cartesian(lat0, lon0, launch_alt)
+    r0_eci = ecef_to_eci(x0_ecef, y0_ecef, z0_ecef, 0)
     v0_eci = np.cross([0.0, 0.0, EARTH_OMEGA], r0_eci)
 
     # «грубый» финал: над стартом на нужной высоте, скорость на восток
-    rf_eci = geographic_to_cartesian(lat0, lon0, target_alt)
+    rf_eci = ecef_to_eci(x0_ecef, y0_ecef, z0_ecef, ref_duration)
     east_eci = np.array([-np.sin(lon0), np.cos(lon0), 0.0])
     vf_eci = target_speed * east_eci
 
@@ -214,7 +213,7 @@ def run_ssto_3d(launch_lat_deg=28.5, launch_lon_deg=-80.5, launch_alt=0.0,
     phase.set_state_val('vx', [v0_eci[0], vf_eci[0]])
     phase.set_state_val('vy', [v0_eci[1], vf_eci[1]])
     phase.set_state_val('vz', [v0_eci[2], vf_eci[2]])
-    phase.set_state_val('m', [m0, m0 * 0.1])  # ~10% массы доходит
+    phase.set_state_val('m', [m0, m0 * 0.1])
 
     phase.set_control_val('dir_x', [zenith0[0], east_eci[0]])
     phase.set_control_val('dir_y', [zenith0[1], east_eci[1]])

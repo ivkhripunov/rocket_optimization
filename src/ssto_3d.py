@@ -44,6 +44,8 @@ class SSTO3D(om.JaxExplicitComponent):
         # дроссель — относительный уровень тяги в [0, 1]
         self.add_input('throttle', val=np.ones(nn))
 
+        self.add_input('time', val=np.zeros(nn), units='s')
+
         # ----- outputs: производные состояний -----
         for n in ('rxdot', 'rydot', 'rzdot'):
             self.add_output(n, val=np.zeros(nn), units='m/s')
@@ -59,12 +61,14 @@ class SSTO3D(om.JaxExplicitComponent):
         self.add_output('h', val=np.zeros(nn), units='m')
         self.add_output('thrust_actual', val=np.zeros(nn), units='N')
 
+        self.add_output('r_target', val=np.zeros(nn), units='m')
+
     def compute_primal(self,
                        rx, ry, rz,
                        vx, vy, vz,
                        m,
                        dir_x, dir_y, dir_z,
-                       throttle):
+                       throttle, time):
 
         CDA = self.options['CD'] * self.options['S']
         rho_ref = self.options['rho_ref']
@@ -127,15 +131,33 @@ class SSTO3D(om.JaxExplicitComponent):
         dir_norm_sq = dir_x * dir_x + dir_y * dir_y + dir_z * dir_z
         thrust_actual = F_T
 
+        rx_target_ecef, ry_target_ecef, rz_target_ecef = geographic_to_cartesian(
+            jnp.deg2rad(38.8951),
+            jnp.deg2rad(-77.0364),
+            0.0
+        )
+
+        theta = EARTH_OMEGA * time
+
+        c = jnp.cos(theta)
+        s = jnp.sin(theta)
+
+        rx_target = (c * rx_target_ecef - s * ry_target_ecef) - rx
+        ry_target = (s * rx_target_ecef + c * ry_target_ecef) - ry
+        rz_target = rz_target_ecef - rz
+
+        r_target = jnp.sqrt(rx_target * rx_target + ry_target * ry_target + rz_target * rz_target)
+
         return (rxdot, rydot, rzdot,
                 vxdot, vydot, vzdot,
                 mdot,
-                r_mag, v_mag, v_radial, dir_norm_sq, h, thrust_actual)
+                r_mag, v_mag, v_radial, dir_norm_sq, h, thrust_actual,
+                r_target)
 
 
-def run_ssto_3d(launch_lat_deg=0, launch_lon_deg=0, launch_alt=0.0,
+def run_ssto_3d(launch_lat_deg=55.7522, launch_lon_deg=37.6156, launch_alt=0.0,
                 target_alt=400_000.0,
-                m0=117_000.0, mf_min=1.0,
+                m0=46e3, mf_min=3e3,
                 thrust_max_N=2.1e6, Isp_s=265.2,
                 num_segments=5, order=3):
     p = om.Problem()
@@ -153,10 +175,13 @@ def run_ssto_3d(launch_lat_deg=0, launch_lon_deg=0, launch_alt=0.0,
 
     ref_duration = 200
 
-    phase.set_time_options(fix_initial=True,
-                           duration_bounds=(50.0, 800.0),
-                           duration_ref=ref_duration,
-                           units='s')
+    phase.set_time_options(
+        fix_initial=True,
+        duration_bounds=(50.0, 800.0),
+        duration_ref=ref_duration,
+        units='s',
+        targets='time'
+    )
 
     # ---- состояния ----
     for n in ('rx', 'ry', 'rz'):
@@ -184,24 +209,23 @@ def run_ssto_3d(launch_lat_deg=0, launch_lon_deg=0, launch_alt=0.0,
 
     phase.add_path_constraint('h', lower=0.)
 
-    target_radius = EARTH_RAD + target_alt
-    target_speed = float(np.sqrt(EARTH_MU / target_radius))
-
-    phase.add_boundary_constraint('r_mag', loc='final',
-                                  equals=target_radius, ref=target_radius)
-    phase.add_boundary_constraint('v_mag', loc='final',
-                                  equals=target_speed, ref=target_speed)
-    phase.add_boundary_constraint('v_radial', loc='final', lower=-10.0, upper=10.0)
+    phase.add_boundary_constraint(
+        'r_target',
+        loc='final',
+        lower=1,
+        units='m',
+        ref=1e3
+    )
 
     # ---- диагностику — в timeseries ----
-    for n in ('r_mag', 'v_mag', 'v_radial', 'dir_norm_sq', 'h', 'thrust_actual'):
+    for n in ('r_mag', 'v_mag', 'v_radial', 'dir_norm_sq', 'h', 'thrust_actual', 'r_target'):
         phase.add_timeseries_output(n)
 
     # =========================================================
     # ЦЕЛЬ: максимизировать конечную массу (= минимум расхода)
     # scaler=-1 потому что Dymos минимизирует, а нам нужен максимум
     # =========================================================
-    phase.add_objective('m', loc='final', ref=-m0)
+    phase.add_objective('r_target', loc='final')
 
     # ---- driver ----
     p.driver = om.pyOptSparseDriver()
@@ -225,7 +249,6 @@ def run_ssto_3d(launch_lat_deg=0, launch_lon_deg=0, launch_alt=0.0,
 
     rf_eci = ecef_to_eci(x0_ecef, y0_ecef, z0_ecef, ref_duration)
     east_eci = np.array([-np.sin(lon0), np.cos(lon0), 0.0])
-    vf_eci = target_speed * east_eci
 
     zenith0 = r0_eci / np.linalg.norm(r0_eci)
 
@@ -234,9 +257,9 @@ def run_ssto_3d(launch_lat_deg=0, launch_lon_deg=0, launch_alt=0.0,
     phase.set_state_val('rx', [r0_eci[0], rf_eci[0]])
     phase.set_state_val('ry', [r0_eci[1], rf_eci[1]])
     phase.set_state_val('rz', [r0_eci[2], rf_eci[2]])
-    phase.set_state_val('vx', [v0_eci[0], vf_eci[0]])
-    phase.set_state_val('vy', [v0_eci[1], vf_eci[1]])
-    phase.set_state_val('vz', [v0_eci[2], vf_eci[2]])
+    phase.set_state_val('vx', [v0_eci[0], v0_eci[0]])
+    phase.set_state_val('vy', [v0_eci[1], v0_eci[1]])
+    phase.set_state_val('vz', [v0_eci[2], v0_eci[2]])
 
     phase.set_state_val('m', [m0, m0 * 0.1])
 
@@ -246,8 +269,6 @@ def run_ssto_3d(launch_lat_deg=0, launch_lon_deg=0, launch_alt=0.0,
 
     phase.set_control_val('throttle', [1.0, 1.0])
 
-    dm.run_problem(p, simulate=True)
+    dm.run_problem(p, simulate=False)
 
-    sim_db = traj.sim_prob.get_outputs_dir() / 'dymos_simulation.db'
-
-    return p, sim_db
+    return p, None

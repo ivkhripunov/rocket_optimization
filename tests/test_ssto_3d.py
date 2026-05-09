@@ -9,4 +9,4 @@ plot_eci_trajectory_3d(sol_db)
 
 plot_eci_trajectory_zoomed(sol_db)
 
-plot_ssto(sol_db, sim_db)
+plot_ssto(sol_db)

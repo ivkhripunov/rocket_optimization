@@ -54,8 +54,6 @@ class SSTO3D(om.JaxExplicitComponent):
         self.add_output('dir_norm_sq', val=np.ones(nn))
         self.add_output('h', val=np.zeros(nn), units='m')
 
-    # --- JaxExplicitComponent требует compute_primal, а не compute ---
-    # Аргументы должны идти в порядке add_input, выход — кортеж в порядке add_output
     def compute_primal(self,
                        rx, ry, rz,
                        vx, vy, vz,
@@ -126,7 +124,7 @@ class SSTO3D(om.JaxExplicitComponent):
 
 def run_ssto_3d(launch_lat_deg=28.5, launch_lon_deg=-80.5, launch_alt=0.0,
                 target_alt=200_000.0,
-                m0=117_000.0, mf_min=1_000.0,
+                m0=117_000.0, mf_min=1.0,
                 thrust_N=2.1e6, Isp_s=265.2,
                 num_segments=20, order=3,
                 duration_guess=200.0):
@@ -175,8 +173,6 @@ def run_ssto_3d(launch_lat_deg=28.5, launch_lon_deg=-80.5, launch_alt=0.0,
                                   equals=target_radius, ref=target_radius)
     phase.add_boundary_constraint('v_mag', loc='final',
                                   equals=target_speed, ref=target_speed)
-    phase.add_boundary_constraint('v_radial', loc='final',
-                                  equals=0.0, ref=100.0)
 
     # ---- диагностику — в timeseries для графиков ----
     for n in ('r_mag', 'v_mag', 'v_radial', 'dir_norm_sq'):

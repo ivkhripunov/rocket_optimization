@@ -137,7 +137,7 @@ def run_ssto_3d(launch_lat_deg=0, launch_lon_deg=0, launch_alt=0.0,
                 target_alt=200_000.0,
                 m0=117_000.0, mf_min=1.0,
                 thrust_max_N=2.1e6, Isp_s=265.2,
-                num_segments=15, order=3):
+                num_segments=5, order=3):
     p = om.Problem()
     traj = dm.Trajectory()
     p.model.add_subsystem('traj', traj)

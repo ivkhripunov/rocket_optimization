@@ -3,7 +3,7 @@ import numpy as np
 import dymos as dm
 
 
-class LaunchVehicleODE(om.ExplicitComponent):
+class SSTO(om.ExplicitComponent):
 
     def initialize(self):
         self.options.declare('num_nodes', types=int,
@@ -134,7 +134,7 @@ def run_ssto():
     #
     traj = dm.Trajectory()
 
-    phase = dm.Phase(ode_class=LaunchVehicleODE,
+    phase = dm.Phase(ode_class=SSTO,
                      transcription=dm.GaussLobatto(num_segments=12, order=3, compressed=False))
 
     traj.add_phase('phase0', phase)

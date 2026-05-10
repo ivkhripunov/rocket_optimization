@@ -86,6 +86,11 @@ def run_multi_stage(
     # =========================================================
     last_phase = phase_objs[-1]
 
+    last_phase.add_boundary_constraint(
+        'rp = orbit_a * (1 - orbit_e)', loc='final',
+        lower=EARTH_RAD, ref=EARTH_RAD,
+    )
+
     if target_a is not None:
         last_phase.add_boundary_constraint(
             'orbit_a', loc='final',

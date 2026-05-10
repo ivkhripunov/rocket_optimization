@@ -1,6 +1,8 @@
+from dataclasses import dataclass
 from src.stage_config import StageConfig
 
 
+@dataclass
 class PhaseConfig(StageConfig):
     # ===== Атмосфера =====
     use_atmosphere: bool = True
@@ -8,11 +10,11 @@ class PhaseConfig(StageConfig):
     h_scale: float = 8.44e3  # м, масштаб высоты
 
     # ===== Тепловые / аэродинамические нагрузки =====
-    q_heat_max: float = 2.0e5  # Вт/м², ограничение теплового потока
-    q_dyn_max: float = 50_000.0  # Па, ограничение динамического давления
+    q_heat_max: float = 5.0e5  # Вт/м², ограничение теплового потока
+    q_dyn_max: float = 120_000.0  # Па, ограничение динамического давления
 
     # ===== Структурные ограничения =====
-    g_load_max: float = 6.0  # перегрузка в g
+    g_load_max: float = 10.0  # перегрузка в g
 
     # ===== Сетка =====
     num_segments: int = 15
@@ -26,3 +28,9 @@ class PhaseConfig(StageConfig):
     refine_min_order: int = 3
     refine_max_order: int = 3
     refine_smoothness: float = 1.5
+
+    # ===== Multi-stage / management =====
+    fix_duration: bool = False
+    duration_value: float = 100.0
+    optimize_throttle: bool = True
+    throttle_default: float = 1.0

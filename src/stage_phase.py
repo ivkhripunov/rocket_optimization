@@ -13,6 +13,7 @@ def build_stage_phase(
         duration_bounds: tuple = (50.0, 1500.0),
         duration_ref: float = 300.0,
 ) -> dm.Phase:
+
     if transcription is None:
         transcription = dm.GaussLobatto(
             num_segments=config.num_segments,
@@ -70,14 +71,23 @@ def build_stage_phase(
     )
 
     # =========================================================
-    # Время
+    # Время — фиксированное или свободное
     # =========================================================
-    phase.set_time_options(
-        fix_initial=is_first_phase,
-        duration_bounds=duration_bounds,
-        duration_ref=duration_ref,
-        units='s',
-    )
+    if config.fix_duration:
+        phase.set_time_options(
+            fix_initial=is_first_phase,
+            fix_duration=True,
+            duration_val=config.duration_value,
+            duration_ref=max(config.duration_value, 1.0),
+            units='s',
+        )
+    else:
+        phase.set_time_options(
+            fix_initial=is_first_phase,
+            duration_bounds=duration_bounds,
+            duration_ref=duration_ref,
+            units='s',
+        )
 
     # =========================================================
     # Состояния
@@ -113,14 +123,23 @@ def build_stage_phase(
                         units='kg', ref=1.0e5, defect_ref=1.0e3)
 
     # =========================================================
-    # Управления
+    # Управление направлением (всегда оптимизируется)
     # =========================================================
     for n in ('dir_x', 'dir_y', 'dir_z'):
         phase.add_control(n, opt=True, lower=-1.0, upper=1.0,
-                          continuity=True, rate_continuity=True, rate2_continuity=True)
-    phase.add_control('throttle', opt=True,
-                      lower=0.0, upper=1.0,
-                      continuity=True, rate_continuity=True, rate2_continuity=True)
+                          continuity=True, rate_continuity=True)
+
+    # =========================================================
+    # Throttle — control или фиксированный параметр
+    # =========================================================
+    if config.optimize_throttle:
+        phase.add_control('throttle', opt=True,
+                          lower=0.0, upper=1.0,
+                          continuity=True, rate_continuity=True)
+    else:
+        phase.add_parameter('throttle',
+                            val=config.throttle_default,
+                            opt=False)
 
     # =========================================================
     # Путевые ограничения

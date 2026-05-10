@@ -7,7 +7,7 @@ import numpy as np
 
 from src.frame_converter import (
     EARTH_RAD, EARTH_OMEGA,
-    geographic_to_cartesian, ecef_to_eci,
+    geographic_to_cartesian
 )
 
 from src.stage_ode import EARTH_MU
@@ -18,9 +18,10 @@ def run_single_stage(
         launch_lat_deg: float,
         launch_lon_deg: float,
         launch_alt: float,
-        target_alt: float = 400_000.0,
+        target_alt: float = 200_000.0,
         duration_guess: float = 400.0,
-        optimize_design: bool = True,
+        optimize_design: bool = False,
+        optimize_engine: bool = False,
         optimizer_tol: float = 1e-4,
         optimizer_max_iter: int = 500,
 ):
@@ -32,6 +33,7 @@ def run_single_stage(
         stage,
         is_first_phase=True,
         optimize_design=optimize_design,
+        optimize_engine=optimize_engine,
         duration_bounds=(150.0, 800.0),
         duration_ref=duration_guess,
     )

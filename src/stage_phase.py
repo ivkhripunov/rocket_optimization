@@ -138,7 +138,9 @@ def build_stage_phase(
     # Диагностика
     # =========================================================
     for n in ('r_mag', 'v_mag', 'v_radial',
-              'dir_norm_sq', 'h', 'thrust_actual', 'q_heat', 'q_dyn', 'g_load'):
+              'dir_norm_sq', 'h', 'thrust_actual',
+              'q_heat', 'q_dyn', 'g_load',
+              'orbit_a', 'orbit_e', 'orbit_inc'):
         phase.add_timeseries_output(n)
 
     # =========================================================

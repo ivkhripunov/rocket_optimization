@@ -19,6 +19,7 @@ def run_single_stage(
         launch_lon_deg: float,
         launch_alt: float,
         target_alt: float = 200_000.0,
+        target_inc_deg: float = 0,
         duration_guess: float = 400.0,
         optimize_design: bool = False,
         optimize_engine: bool = False,
@@ -42,13 +43,20 @@ def run_single_stage(
     # ---- Целевая орбита ----
     target_radius = EARTH_RAD + target_alt
     target_speed = float(np.sqrt(EARTH_MU / target_radius))
+    target_inc_rad = np.deg2rad(target_inc_deg)
 
-    phase.add_boundary_constraint('r_mag', loc='final',
-                                  equals=target_radius, ref=target_radius)
-    phase.add_boundary_constraint('v_mag', loc='final',
-                                  equals=target_speed, ref=target_speed)
-    phase.add_boundary_constraint('v_radial', loc='final',
-                                  lower=-10.0, upper=10.0)
+    phase.add_boundary_constraint(
+        'orbit_a', loc='final',
+        equals=target_radius, ref=target_radius,
+    )
+    phase.add_boundary_constraint(
+        'orbit_e', loc='final',
+        upper=0.01, ref=0.01,
+    )
+    phase.add_boundary_constraint(
+        'orbit_inc', loc='final',
+        equals=target_inc_rad, ref=max(target_inc_rad, 0.1),
+    )
 
     # ---- Целевая функция ----
     phase.add_objective('m', loc='final', ref=-stage.m_total())

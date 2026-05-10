@@ -62,6 +62,10 @@ class StageODE(om.JaxExplicitComponent):
 
         self.add_output('g_load', val=np.zeros(nn))
 
+        self.add_output('orbit_a', val=EARTH_RAD * np.ones(nn), units='m')
+        self.add_output('orbit_e', val=np.zeros(nn))
+        self.add_output('orbit_inc', val=np.zeros(nn), units='rad')
+
     def compute_primal(self,
                        rx, ry, rz,
                        vx, vy, vz,
@@ -147,8 +151,31 @@ class StageODE(om.JaxExplicitComponent):
         dir_norm_sq = dir_x * dir_x + dir_y * dir_y + dir_z * dir_z
         thrust_actual = F_T
 
+        # ---- Орбитальные элементы ----
+        v2_orb = vx * vx + vy * vy + vz * vz
+        rdotv_orb = rx * vx + ry * vy + rz * vz
+
+        eps_orb = 0.5 * v2_orb - EARTH_MU / r
+        orbit_a = -EARTH_MU / (2.0 * eps_orb)
+
+        hx = ry * vz - rz * vy
+        hy = rz * vx - rx * vz
+        hz = rx * vy - ry * vx
+        h_norm = jnp.sqrt(hx * hx + hy * hy + hz * hz + 1e-12)
+
+        coef_r = v2_orb / EARTH_MU - 1.0 / r
+        coef_v = rdotv_orb / EARTH_MU
+        ex = coef_r * rx - coef_v * vx
+        ey = coef_r * ry - coef_v * vy
+        ez = coef_r * rz - coef_v * vz
+        orbit_e = jnp.sqrt(ex * ex + ey * ey + ez * ez + 1e-12)
+
+        cos_i = jnp.clip(hz / h_norm, -1.0 + 1e-12, 1.0 - 1e-12)
+        orbit_inc = jnp.arccos(cos_i)
+
         return (rxdot, rydot, rzdot,
                 vxdot, vydot, vzdot,
                 mdot,
                 r_mag, v_mag, v_radial, dir_norm_sq, h, thrust_actual,
-                q_heat, q_dyn, g_load)
+                q_heat, q_dyn, g_load,
+                orbit_a, orbit_e, orbit_inc)

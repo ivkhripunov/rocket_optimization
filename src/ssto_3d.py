@@ -18,12 +18,8 @@ class SSTO3D(om.JaxExplicitComponent):
         self.options.declare('S', types=float, default=7.069)
 
         # Атмосфера
-        self.options.declare('rho_ref', types=float, default=0.)
+        self.options.declare('rho_ref', types=float, default=1.225)
         self.options.declare('h_scale', types=float, default=8.44e3)
-
-        # Двигатель: МАКСИМАЛЬНАЯ тяга и Isp
-        self.options.declare('thrust_max', types=float, default=2.1e6)
-        self.options.declare('Isp', types=float, default=265.2)
 
     def setup(self):
         nn = self.options['num_nodes']
@@ -43,6 +39,8 @@ class SSTO3D(om.JaxExplicitComponent):
         self.add_input('dir_z', val=np.zeros(nn))
         # дроссель — относительный уровень тяги в [0, 1]
         self.add_input('throttle', val=np.ones(nn))
+        self.add_input('thrust_max', val=2.1e6 * np.ones(nn), units='N')
+        self.add_input('Isp', val=265.2 * np.ones(nn), units='s')
 
         # ----- outputs: производные состояний -----
         for n in ('rxdot', 'rydot', 'rzdot'):
@@ -64,13 +62,12 @@ class SSTO3D(om.JaxExplicitComponent):
                        vx, vy, vz,
                        m,
                        dir_x, dir_y, dir_z,
-                       throttle):
+                       throttle, thrust_max, Isp):
 
         CDA = self.options['CD'] * self.options['S']
         rho_ref = self.options['rho_ref']
         h_scale = self.options['h_scale']
-        F_T_max = self.options['thrust_max']
-        Isp = self.options['Isp']
+        F_T_max = thrust_max
 
         # ---- фактическая тяга = max × throttle ----
         F_T = F_T_max * throttle
@@ -137,24 +134,26 @@ def run_ssto_3d(launch_lat_deg=0, launch_lon_deg=0, launch_alt=0.0,
                 target_alt=400_000.0,
                 m0=117_000.0, mf_min=1.0,
                 thrust_max_N=2.1e6, Isp_s=265.2,
-                num_segments=5, order=3):
+                num_segments=15, order=3):
     p = om.Problem()
     traj = dm.Trajectory()
     p.model.add_subsystem('traj', traj)
 
     phase = dm.Phase(
         ode_class=SSTO3D,
-        ode_init_kwargs={'thrust_max': thrust_max_N, 'Isp': Isp_s},
         transcription=dm.GaussLobatto(num_segments=num_segments,
                                       order=order, compressed=True),
     )
 
+    phase.add_parameter('thrust_max', units='N', val=thrust_max_N)
+    phase.add_parameter('Isp', units='s', val=Isp_s)
+
     traj.add_phase('phase0', phase)
 
-    ref_duration = 200
+    ref_duration = 400
 
     phase.set_time_options(fix_initial=True,
-                           duration_bounds=(50.0, 800.0),
+                           duration_bounds=(150.0, 800.0),
                            duration_ref=ref_duration,
                            units='s')
 
@@ -171,12 +170,12 @@ def run_ssto_3d(launch_lat_deg=0, launch_lon_deg=0, launch_alt=0.0,
 
     # ---- управления ----
     for n in ('dir_x', 'dir_y', 'dir_z'):
-        phase.add_control(n, opt=True, lower=-1.0, upper=1.0,
+        phase.add_control(n, opt=True, lower=-1.0, upper=1.0, rate_continuity=True,
                           continuity=True)
 
     phase.add_control('throttle', opt=True,
                       lower=0.0, upper=1.0,
-                      continuity=True,
+                      continuity=True, rate_continuity=True,
                       targets=['throttle'])
 
     # ---- констрейнты ----
@@ -221,7 +220,8 @@ def run_ssto_3d(launch_lat_deg=0, launch_lon_deg=0, launch_alt=0.0,
 
     x0_ecef, y0_ecef, z0_ecef = geographic_to_cartesian(lat0, lon0, launch_alt)
     r0_eci = ecef_to_eci(x0_ecef, y0_ecef, z0_ecef, 0)
-    v0_eci = np.cross([0.0, 0.0, EARTH_OMEGA], r0_eci)
+    omega_vec = np.array([0.0, 0.0, EARTH_OMEGA])
+    v0_eci = np.cross(omega_vec, r0_eci)
 
     rf_eci = ecef_to_eci(x0_ecef, y0_ecef, z0_ecef, ref_duration)
     east_eci = np.array([-np.sin(lon0), np.cos(lon0), 0.0])
@@ -229,7 +229,7 @@ def run_ssto_3d(launch_lat_deg=0, launch_lon_deg=0, launch_alt=0.0,
 
     zenith0 = r0_eci / np.linalg.norm(r0_eci)
 
-    phase.set_time_val(initial=0.0, duration=ref_duration, units='s')
+    phase.set_time_val(initial=0.0, duration=ref_duration)
 
     phase.set_state_val('rx', [r0_eci[0], rf_eci[0]])
     phase.set_state_val('ry', [r0_eci[1], rf_eci[1]])

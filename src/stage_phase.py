@@ -8,7 +8,8 @@ def build_stage_phase(
         config: PhaseConfig,
         is_first_phase: bool = True,
         transcription=None,
-        optimize_design: bool = False,
+        optimize_design: bool = True,
+        optimize_engine: bool = True,
         duration_bounds: tuple = (50.0, 1500.0),
         duration_ref: float = 300.0,
 ) -> dm.Phase:
@@ -37,7 +38,7 @@ def build_stage_phase(
     phase.add_parameter(
         'thrust_max', units='N',
         val=config.thrust_max,
-        opt=optimize_design,
+        opt=optimize_engine,
         lower=config.thrust_max_bounds[0],
         upper=config.thrust_max_bounds[1],
         ref=1.0e6,
@@ -45,7 +46,7 @@ def build_stage_phase(
     phase.add_parameter(
         'Isp', units='s',
         val=config.Isp,
-        opt=optimize_design,
+        opt=optimize_engine,
         lower=config.Isp_bounds[0],
         upper=config.Isp_bounds[1],
         ref=300.0,

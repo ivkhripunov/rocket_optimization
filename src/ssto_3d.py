@@ -62,7 +62,7 @@ class StageConfig:
     S: float = 7.069                 # м², характерная площадь
 
     # ===== Атмосфера =====
-    use_atmosphere: bool = True
+    use_atmosphere: bool = False
     rho_ref: float = 1.225           # кг/м³, плотность на h=0
     h_scale: float = 8.44e3          # м, масштаб высоты
 
@@ -408,7 +408,7 @@ def run_ssto_3d(
     launch_lat_deg: float = 0.0,
     launch_lon_deg: float = 0.0,
     launch_alt: float = 0.0,
-    target_alt: float = 400_000.0,
+    target_alt: float = 200_000.0,
     duration_guess: float = 400.0,
     optimize_design: bool = False,
     optimizer_tol: float = 1e-4,

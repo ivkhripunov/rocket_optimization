@@ -14,6 +14,8 @@ class StageODE(om.JaxExplicitComponent):
         self.options.declare('CD', types=float)
         self.options.declare('S', types=float)
 
+        self.options.declare('nose_radius', types=float, default=0.5)
+
         self.options.declare('use_atmosphere', types=bool)
         self.options.declare('rho_ref', types=float)
         self.options.declare('h_scale', types=float)
@@ -54,6 +56,9 @@ class StageODE(om.JaxExplicitComponent):
         self.add_output('dir_norm_sq', val=np.ones(nn))
         self.add_output('h', val=np.zeros(nn), units='m')
         self.add_output('thrust_actual', val=np.zeros(nn), units='N')
+
+        self.add_output('q_heat', val=np.zeros(nn), units='W/m**2')
+        self.add_output('q_dyn', val=np.zeros(nn), units='Pa')
 
     def compute_primal(self,
                        rx, ry, rz,
@@ -101,10 +106,17 @@ class StageODE(om.JaxExplicitComponent):
             a_drag_x = -0.5 * CDA * rho * v_rel * vrx / m
             a_drag_y = -0.5 * CDA * rho * v_rel * vry / m
             a_drag_z = -0.5 * CDA * rho * v_rel * vrz / m
+
+            SUTTON_GRAVES_K = 1.7415e-4
+            nose_radius = self.options['nose_radius']
+            q_heat = SUTTON_GRAVES_K * jnp.sqrt(rho / nose_radius) * v_rel ** 3
+            q_dyn = 0.5 * rho * v_rel * v_rel
         else:
             a_drag_x = jnp.zeros_like(vx)
             a_drag_y = jnp.zeros_like(vy)
             a_drag_z = jnp.zeros_like(vz)
+            q_heat = jnp.zeros_like(vx)
+            q_dyn = jnp.zeros_like(vx)
 
         # ---- ускорение от тяги ----
         a_thrust_x = (F_T / m) * dx
@@ -130,4 +142,5 @@ class StageODE(om.JaxExplicitComponent):
         return (rxdot, rydot, rzdot,
                 vxdot, vydot, vzdot,
                 mdot,
-                r_mag, v_mag, v_radial, dir_norm_sq, h, thrust_actual)
+                r_mag, v_mag, v_radial, dir_norm_sq, h, thrust_actual,
+                q_heat, q_dyn)

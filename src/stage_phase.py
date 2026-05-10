@@ -25,6 +25,7 @@ def build_stage_phase(
         ode_init_kwargs={
             'CD': config.CD,
             'S': config.S,
+            'nose_radius': config.nose_radius,
             'use_atmosphere': config.use_atmosphere,
             'rho_ref': config.rho_ref,
             'h_scale': config.h_scale,
@@ -126,12 +127,16 @@ def build_stage_phase(
     # =========================================================
     phase.add_path_constraint('dir_norm_sq', equals=1.0, ref=1.0)
     phase.add_path_constraint('h', lower=-100.0)
+    phase.add_path_constraint('q_heat', upper=config.q_heat_max,
+                              ref=config.q_heat_max)
+    phase.add_path_constraint('q_dyn', upper=config.q_dyn_max,
+                              ref=config.q_dyn_max)
 
     # =========================================================
     # Диагностика
     # =========================================================
     for n in ('r_mag', 'v_mag', 'v_radial',
-              'dir_norm_sq', 'h', 'thrust_actual'):
+              'dir_norm_sq', 'h', 'thrust_actual', 'q_heat', 'q_dyn'):
         phase.add_timeseries_output(n)
 
     # =========================================================

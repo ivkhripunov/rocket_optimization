@@ -7,6 +7,10 @@ class PhaseConfig(StageConfig):
     rho_ref: float = 1.225  # кг/м³, плотность на h=0
     h_scale: float = 8.44e3  # м, масштаб высоты
 
+    # ===== Тепловые / аэродинамические нагрузки =====
+    q_heat_max: float = 2.0e5  # Вт/м², ограничение теплового потока
+    q_dyn_max: float = 50_000.0  # Па, ограничение динамического давления
+
     # ===== Сетка =====
     num_segments: int = 15
     order: int = 3

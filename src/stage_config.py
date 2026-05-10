@@ -1,6 +1,9 @@
 class StageConfig:
     name: str = 'phase0'
 
+    # ===== Геометрия носа (для Sutton-Graves) =====
+    nose_radius: float = 0.5  # м, радиус кривизны
+
     # ===== Двигатель =====
     thrust_max: float = 2.1e6  # Н, максимальная тяга
     Isp: float = 265.2  # с, удельный импульс

@@ -1,0 +1,130 @@
+import numpy as np
+from jax import numpy as jnp
+import openmdao.api as om
+from src.frame_converter import EARTH_RAD, EARTH_OMEGA
+
+EARTH_MU = 3.986004418e14  # м^3/с^2, гравитационный параметр Земли
+G0 = 9.80665  # м/с^2, стандартное ускорение
+
+
+class StageODE(om.JaxExplicitComponent):
+    def initialize(self):
+        self.options.declare('num_nodes', types=int)
+
+        self.options.declare('CD', types=float)
+        self.options.declare('S', types=float)
+
+        self.options.declare('use_atmosphere', types=bool)
+        self.options.declare('rho_ref', types=float)
+        self.options.declare('h_scale', types=float)
+
+    def setup(self):
+        nn = self.options['num_nodes']
+
+        # ---- inputs: состояния ----
+        for n in ('rx', 'ry', 'rz'):
+            self.add_input(n, val=EARTH_RAD * np.ones(nn), units='m')
+        for n in ('vx', 'vy', 'vz'):
+            self.add_input(n, val=np.zeros(nn), units='m/s')
+        self.add_input('m', val=1.0e5 * np.ones(nn), units='kg')
+
+        # ---- inputs: управления ----
+        self.add_input('dir_x', val=np.ones(nn))
+        self.add_input('dir_y', val=np.zeros(nn))
+        self.add_input('dir_z', val=np.zeros(nn))
+        self.add_input('throttle', val=np.ones(nn))
+
+        # ---- inputs: параметры ступени ----
+        self.add_input('thrust_max', val=2.1e6 * np.ones(nn), units='N')
+        self.add_input('Isp', val=265.2 * np.ones(nn), units='s')
+
+        # ---- outputs: производные состояний ----
+        for n in ('rxdot', 'rydot', 'rzdot'):
+            self.add_output(n, val=np.zeros(nn), units='m/s')
+        for n in ('vxdot', 'vydot', 'vzdot'):
+            self.add_output(n, val=np.zeros(nn), units='m/s**2')
+        self.add_output('mdot', val=np.zeros(nn), units='kg/s')
+
+        # ---- outputs: диагностика ----
+        self.add_output('r_mag', val=np.zeros(nn), units='m')
+        self.add_output('v_mag', val=np.zeros(nn), units='m/s')
+        self.add_output('v_radial', val=np.zeros(nn), units='m/s')
+        self.add_output('dir_norm_sq', val=np.ones(nn))
+        self.add_output('h', val=np.zeros(nn), units='m')
+        self.add_output('thrust_actual', val=np.zeros(nn), units='N')
+
+    def compute_primal(self,
+                       rx, ry, rz,
+                       vx, vy, vz,
+                       m,
+                       dir_x, dir_y, dir_z,
+                       throttle,
+                       thrust_max, Isp):
+
+        CDA = self.options['CD'] * self.options['S']
+        use_atmosphere = self.options['use_atmosphere']
+        rho_ref = self.options['rho_ref']
+        h_scale = self.options['h_scale']
+
+        F_T = thrust_max * throttle
+
+        # ---- нормировка вектора направления ----
+        dir_norm = jnp.sqrt(dir_x * dir_x + dir_y * dir_y + dir_z * dir_z + 1e-12)
+        dx = dir_x / dir_norm
+        dy = dir_y / dir_norm
+        dz = dir_z / dir_norm
+
+        # ---- геоцентрическое расстояние и высота ----
+        r = jnp.sqrt(rx * rx + ry * ry + rz * rz)
+        h = r - EARTH_RAD
+
+        # ---- центральная гравитация ----
+        inv_r3 = 1.0 / (r * r * r)
+        a_grav_x = -EARTH_MU * rx * inv_r3
+        a_grav_y = -EARTH_MU * ry * inv_r3
+        a_grav_z = -EARTH_MU * rz * inv_r3
+
+        # ---- атмосферное сопротивление (опционально) ----
+        if use_atmosphere:
+            rho = rho_ref * jnp.exp(-h / h_scale)
+
+            v_atm_x = -EARTH_OMEGA * ry
+            v_atm_y = EARTH_OMEGA * rx
+            vrx = vx - v_atm_x
+            vry = vy - v_atm_y
+            vrz = vz
+            v_rel = jnp.sqrt(vrx * vrx + vry * vry + vrz * vrz + 1.0)
+
+            a_drag_x = -0.5 * CDA * rho * v_rel * vrx / m
+            a_drag_y = -0.5 * CDA * rho * v_rel * vry / m
+            a_drag_z = -0.5 * CDA * rho * v_rel * vrz / m
+        else:
+            a_drag_x = jnp.zeros_like(vx)
+            a_drag_y = jnp.zeros_like(vy)
+            a_drag_z = jnp.zeros_like(vz)
+
+        # ---- ускорение от тяги ----
+        a_thrust_x = (F_T / m) * dx
+        a_thrust_y = (F_T / m) * dy
+        a_thrust_z = (F_T / m) * dz
+
+        # ---- производные состояний ----
+        rxdot = vx
+        rydot = vy
+        rzdot = vz
+        vxdot = a_grav_x + a_thrust_x + a_drag_x
+        vydot = a_grav_y + a_thrust_y + a_drag_y
+        vzdot = a_grav_z + a_thrust_z + a_drag_z
+        mdot = -F_T / (Isp * G0)
+
+        # ---- диагностика ----
+        r_mag = r
+        v_mag = jnp.sqrt(vx * vx + vy * vy + vz * vz)
+        v_radial = (rx * vx + ry * vy + rz * vz) / r
+        dir_norm_sq = dir_x * dir_x + dir_y * dir_y + dir_z * dir_z
+        thrust_actual = F_T
+
+        return (rxdot, rydot, rzdot,
+                vxdot, vydot, vzdot,
+                mdot,
+                r_mag, v_mag, v_radial, dir_norm_sq, h, thrust_actual)

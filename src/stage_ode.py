@@ -60,6 +60,8 @@ class StageODE(om.JaxExplicitComponent):
         self.add_output('q_heat', val=np.zeros(nn), units='W/m**2')
         self.add_output('q_dyn', val=np.zeros(nn), units='Pa')
 
+        self.add_output('g_load', val=np.zeros(nn))
+
     def compute_primal(self,
                        rx, ry, rz,
                        vx, vy, vz,
@@ -123,13 +125,19 @@ class StageODE(om.JaxExplicitComponent):
         a_thrust_y = (F_T / m) * dy
         a_thrust_z = (F_T / m) * dz
 
+        # ---- ускорение от внешних сил ----
+        a_spec_x = a_thrust_x + a_drag_x
+        a_spec_y = a_thrust_y + a_drag_y
+        a_spec_z = a_thrust_z + a_drag_z
+        g_load = jnp.sqrt(a_spec_x ** 2 + a_spec_y ** 2 + a_spec_z ** 2) / G0
+
         # ---- производные состояний ----
         rxdot = vx
         rydot = vy
         rzdot = vz
-        vxdot = a_grav_x + a_thrust_x + a_drag_x
-        vydot = a_grav_y + a_thrust_y + a_drag_y
-        vzdot = a_grav_z + a_thrust_z + a_drag_z
+        vxdot = a_grav_x + a_spec_x
+        vydot = a_grav_y + a_spec_y
+        vzdot = a_grav_z + a_spec_z
         mdot = -F_T / (Isp * G0)
 
         # ---- диагностика ----
@@ -143,4 +151,4 @@ class StageODE(om.JaxExplicitComponent):
                 vxdot, vydot, vzdot,
                 mdot,
                 r_mag, v_mag, v_radial, dir_norm_sq, h, thrust_actual,
-                q_heat, q_dyn)
+                q_heat, q_dyn, g_load)

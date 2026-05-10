@@ -131,12 +131,14 @@ def build_stage_phase(
                               ref=config.q_heat_max)
     phase.add_path_constraint('q_dyn', upper=config.q_dyn_max,
                               ref=config.q_dyn_max)
+    phase.add_path_constraint('g_load', upper=config.g_load_max,
+                              ref=config.g_load_max)
 
     # =========================================================
     # Диагностика
     # =========================================================
     for n in ('r_mag', 'v_mag', 'v_radial',
-              'dir_norm_sq', 'h', 'thrust_actual', 'q_heat', 'q_dyn'):
+              'dir_norm_sq', 'h', 'thrust_actual', 'q_heat', 'q_dyn', 'g_load'):
         phase.add_timeseries_output(n)
 
     # =========================================================

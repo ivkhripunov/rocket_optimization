@@ -11,6 +11,9 @@ class PhaseConfig(StageConfig):
     q_heat_max: float = 2.0e5  # Вт/м², ограничение теплового потока
     q_dyn_max: float = 50_000.0  # Па, ограничение динамического давления
 
+    # ===== Структурные ограничения =====
+    g_load_max: float = 6.0  # перегрузка в g
+
     # ===== Сетка =====
     num_segments: int = 15
     order: int = 3

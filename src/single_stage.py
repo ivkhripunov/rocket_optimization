@@ -79,6 +79,10 @@ def run_single_stage(
 
     zenith0 = r0_eci / np.linalg.norm(r0_eci)
 
+    phase.add_boundary_constraint('dir_x', loc='initial', equals=zenith0[0])
+    phase.add_boundary_constraint('dir_y', loc='initial', equals=zenith0[1])
+    phase.add_boundary_constraint('dir_z', loc='initial', equals=zenith0[2])
+
     phase.set_time_val(initial=0.0, duration=duration_guess)
 
     phase.set_state_val('rx', [r0_eci[0], rf_eci[0]])

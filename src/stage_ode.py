@@ -37,6 +37,8 @@ class StageODE(om.JaxExplicitComponent):
         # ---- inputs: параметры ступени ----
         self.add_input('thrust_max', val=2.1e6 * np.ones(nn), units='N')
         self.add_input('Isp', val=265.2 * np.ones(nn), units='s')
+        self.add_input('m_dry', val=1.0e3 * np.ones(nn), units='kg')
+        self.add_input('m_propellant', val=1.0e5 * np.ones(nn), units='kg')
 
         # ---- outputs: производные состояний ----
         for n in ('rxdot', 'rydot', 'rzdot'):
@@ -59,7 +61,8 @@ class StageODE(om.JaxExplicitComponent):
                        m,
                        dir_x, dir_y, dir_z,
                        throttle,
-                       thrust_max, Isp):
+                       thrust_max, Isp,
+                       m_dry, m_propellant):
 
         CDA = self.options['CD'] * self.options['S']
         use_atmosphere = self.options['use_atmosphere']

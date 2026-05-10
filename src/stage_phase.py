@@ -57,7 +57,6 @@ def build_stage_phase(
         lower=config.m_dry_bounds[0],
         upper=config.m_dry_bounds[1],
         ref=1.0e3,
-        targets=[],
     )
     phase.add_parameter(
         'm_propellant', units='kg',
@@ -66,7 +65,6 @@ def build_stage_phase(
         lower=config.m_propellant_bounds[0],
         upper=config.m_propellant_bounds[1],
         ref=1.0e5,
-        targets=[],
     )
 
     # =========================================================

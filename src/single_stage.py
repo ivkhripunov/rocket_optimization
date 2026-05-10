@@ -20,7 +20,7 @@ def run_single_stage(
         launch_alt: float,
         target_alt: float = 400_000.0,
         duration_guess: float = 400.0,
-        optimize_design: bool = False,
+        optimize_design: bool = True,
         optimizer_tol: float = 1e-4,
         optimizer_max_iter: int = 500,
 ):

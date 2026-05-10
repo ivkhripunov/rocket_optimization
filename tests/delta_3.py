@@ -112,8 +112,8 @@ def make_delta3_phase_configs():
     """4 конфигурации виртуальных ступеней Delta III."""
 
     common_aero = dict(
-        CD=0.5,
-        S=10.0,  # площадь Миделя — оценочно
+        CD=0.,
+        S=1.,  # площадь Миделя — оценочно
         nose_radius=0.7,
     )
 
@@ -130,12 +130,12 @@ def make_delta3_phase_configs():
         m_propellant_bounds=mbounds(prop_phase1),
         thrust_max_bounds=(0.5 * F_phase1, 1.5 * F_phase1),
         Isp_bounds=(0.9 * Isp_phase1, 1.1 * Isp_phase1),
-        use_atmosphere=True,
-        fix_duration=True,
+        use_atmosphere=False,
+        fix_duration=False,
         duration_value=t_phase1,
-        optimize_throttle=False,
+        optimize_throttle=True,
         throttle_default=1.0,
-        num_segments=10,
+        num_segments=7,
         order=3,
         **common_aero,
     )
@@ -150,12 +150,12 @@ def make_delta3_phase_configs():
         m_propellant_bounds=mbounds(prop_phase2),
         thrust_max_bounds=(0.5 * F_phase2, 1.5 * F_phase2),
         Isp_bounds=(0.9 * Isp_phase2, 1.1 * Isp_phase2),
-        use_atmosphere=True,
-        fix_duration=True,
+        use_atmosphere=False,
+        fix_duration=False,
         duration_value=t_phase2,
-        optimize_throttle=False,
+        optimize_throttle=True,
         throttle_default=1.0,
-        num_segments=10,
+        num_segments=7,
         order=3,
         **common_aero,
     )
@@ -170,12 +170,12 @@ def make_delta3_phase_configs():
         m_propellant_bounds=mbounds(prop_phase3),
         thrust_max_bounds=(0.5 * F_phase3, 1.5 * F_phase3),
         Isp_bounds=(0.9 * Isp_phase3, 1.1 * Isp_phase3),
-        use_atmosphere=True,
-        fix_duration=True,
+        use_atmosphere=False,
+        fix_duration=False,
         duration_value=t_phase3,
-        optimize_throttle=False,
+        optimize_throttle=True,
         throttle_default=1.0,
-        num_segments=10,
+        num_segments=7,
         order=3,
         **common_aero,
     )
@@ -192,11 +192,10 @@ def make_delta3_phase_configs():
         Isp_bounds=(0.9 * Isp_phase4, 1.1 * Isp_phase4),
         use_atmosphere=False,
         fix_duration=False,
-        optimize_throttle=False,
+        optimize_throttle=True,
         throttle_default=1.0,
-        num_segments=15,
+        num_segments=7,
         order=3,
-        # ослабленные путевые ограничения (на орбите они не важны)
         q_heat_max=1.0e8,
         q_dyn_max=1.0e6,
         g_load_max=10.0,
@@ -205,15 +204,7 @@ def make_delta3_phase_configs():
     return [phase1, phase2, phase3, phase4]
 
 
-def run_delta3_gto(optimize_design: bool = False):
-    """
-    Запуск миссии Delta III на ГТО.
-
-    ГТО (стандартная):
-        a ≈ 24 500 км
-        e ≈ 0.73
-        i ≈ 28.5° (≈ широта Канаверал)
-    """
+def run_delta3_gto(optimize_design: bool = True):
     phases = make_delta3_phase_configs()
 
     mass_drops = [
@@ -223,7 +214,7 @@ def run_delta3_gto(optimize_design: bool = False):
         0.0,  # после фазы 4: ничего (последняя)
     ]
 
-    a_GTO = 7000e3#24_500_000.0
+    a_GTO = 24500e3  # 24_500_000.0
     e_GTO = 0.73
 
     return run_multi_stage(
@@ -290,15 +281,14 @@ def print_delta3_summary():
 
 
 print_delta3_summary()
-# p, sol_db, sim_db = run_delta3_gto()
-# print(f'\nSolution:   {sol_db}')
-# print(f'Simulation: {sim_db}')
+p, sol_db, sim_db = run_delta3_gto()
+print(f'\nSolution:   {sol_db}')
+print(f'Simulation: {sim_db}')
 
-sol_db, sim_db = ('/home/ivan/code/py/rocket_optimization/tests/delta_3_out/dymos_solution.db',
-                  '/home/ivan/code/py/rocket_optimization/tests/delta_3_out/traj_simulation_0_out/dymos_simulation.db')
+phase_names = ('phase1', 'phase2', 'phase3', 'phase4')
 
-plot_eci_trajectory_3d(Path(sol_db))
+plot_eci_trajectory_3d(Path(sol_db), phase_names=phase_names)
 
-plot_eci_trajectory_zoomed(Path(sol_db))
+plot_eci_trajectory_zoomed(Path(sol_db), phase_names=phase_names)
 
-plot_multi_stage(sol_db, sim_db, ['phase0', 'phase1', 'phase2', 'phase3'])
+plot_multi_stage(sol_db, sim_db, phase_names=phase_names)

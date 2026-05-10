@@ -89,20 +89,23 @@ def run_multi_stage(
     if target_a is not None:
         last_phase.add_boundary_constraint(
             'orbit_a', loc='final',
-            equals=target_a, ref=target_a,
+            lower=target_a - 10e3,
+            upper=target_a + 10e3, ref=target_a,
         )
 
     if target_e_max is not None:
         last_phase.add_boundary_constraint(
             'orbit_e', loc='final',
-            upper=target_e_max, ref=max(target_e_max, 0.01),
+            lower=target_e_max - 0.05,
+            upper=target_e_max + 0.05, ref=max(target_e_max, 0.01),
         )
 
     if target_inc_deg is not None:
         target_inc_rad = np.deg2rad(target_inc_deg)
         last_phase.add_boundary_constraint(
             'orbit_inc', loc='final',
-            equals=target_inc_rad,
+            lower=target_inc_rad - 0.05,
+            upper=target_inc_rad + 0.05,
             ref=max(target_inc_rad, 0.1),
         )
 
@@ -183,7 +186,7 @@ def run_multi_stage(
         v_e = v0 + alpha_e * (vf_guess - v0)
 
         duration_init = cfg.duration_value if cfg.fix_duration else 300.0
-        t_initial    = cumulative_t_start[i]
+        t_initial = cumulative_t_start[i]
 
         phase.set_time_val(initial=t_initial, duration=duration_init)
 
@@ -196,7 +199,7 @@ def run_multi_stage(
 
         # Масса: от стартовой массы фазы до конечной (после сжигания топлива)
         m_initial_phase = cumulative_initial_masses[i]
-        m_final_phase   = m_initial_phase - cfg.m_propellant
+        m_final_phase = m_initial_phase - cfg.m_propellant
         phase.set_state_val('m', [m_initial_phase, m_final_phase])
 
         # Направление: интерполируем «зенит → восток» по всем фазам

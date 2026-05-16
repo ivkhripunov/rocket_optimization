@@ -428,14 +428,14 @@ def print_design_results(p, phase_configs, mass_drops):
         name = cfg.name
         print(f'\n--- {name} ---')
 
-        thrust = get_param(name, 'thrust_max')
+        thrust = get_param(name, 'thrust')
         isp = get_param(name, 'Isp')
         m_dry = get_param(name, 'm_dry')
         m_prop = get_param(name, 'm_propellant')
 
         # Сравниваем с исходным конфигом
         rows = [
-            ('thrust_max', 'Н', thrust, cfg.thrust_max),
+            ('thrust', 'Н', thrust, cfg.thrust),
             ('Isp', 'с', isp, cfg.Isp),
             ('m_dry', 'кг', m_dry, cfg.m_dry),
             ('m_propellant', 'кг', m_prop, cfg.m_propellant),

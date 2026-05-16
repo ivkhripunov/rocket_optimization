@@ -158,7 +158,7 @@ def run_multi_stage(
     cumulative_initial_masses = [first_phase.m_dry + first_phase.m_propellant]
     for i in range(len(phases) - 1):
         m_prev = cumulative_initial_masses[-1]
-        m_next = m_prev - phases[i].m_propellant - mass_drops[i]
+        m_next = m_prev - phases[i].m_propellant - phases[i].m_dry
         cumulative_initial_masses.append(m_next)
 
     cumulative_t_start = [0.0]

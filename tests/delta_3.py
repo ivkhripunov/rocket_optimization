@@ -232,7 +232,7 @@ def make_delta3_phase_configs():
         duration=t_phase4,
         thrust=F_phase4,
         throttle=1.0,
-        m_dry=STAGE2_DRY,
+        m_dry=STAGE2_DRY + PAYLOAD,
         m_propellant=STAGE2_PROP,
         Isp=Isp_phase4,
 

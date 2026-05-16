@@ -265,6 +265,7 @@ def run_delta3_gto(optimize_design: bool = True):
     e = 0.73
     i = 28.5
     w = 130.5
+    raan = 269.8
 
     return run_multi_stage(
         phases=phases,
@@ -276,6 +277,7 @@ def run_delta3_gto(optimize_design: bool = True):
         target_e=e,
         target_inc_deg=i,
         target_arg_periapsis_deg=w,
+        target_raan_deg=raan,
         optimizer_tol=1.0e-4,
         optimizer_max_iter=1000,
         simulate=True,
@@ -332,7 +334,7 @@ p, sol_db, sim_db = run_delta3_gto()
 print(f'\nSolution:   {sol_db}')
 print(f'Simulation: {sim_db}')
 
-phase_names = ('phase1', 'phase2', 'phase3', 'phase4')
+phase_names = ('phase_1', 'phase_2', 'phase_3', 'phase_4')
 
 plot_eci_trajectory_3d(Path(sol_db), phase_names=phase_names)
 

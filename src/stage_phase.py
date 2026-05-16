@@ -122,6 +122,12 @@ def build_stage_phase(
     phase.add_boundary_constraint('m_init_check = m - m_dry - m_propellant',
                                   loc='initial', equals=0.0, ref=1.0e3)
 
+    if config.q_heat_constraint:
+        phase.add_path_constraint('q_heat', upper=config.q_heat_max)
+
+    if config.q_dyn_constraint:
+        phase.add_path_constraint('q_dyn', upper=config.q_dyn_max)
+
     # =========================================================
     # Диагностика
     # =========================================================

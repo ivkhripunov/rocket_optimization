@@ -143,6 +143,8 @@ def make_delta3_phase_configs():
         nose_radius=1e6,
         CD=0.5,
         S=4 * 3.14,
+
+        num_segments=5
     )
 
     phase2 = PhaseConfig(
@@ -177,6 +179,8 @@ def make_delta3_phase_configs():
         nose_radius=1e6,
         CD=0.5,
         S=4 * 3.14,
+
+        num_segments=5
     )
 
     phase3 = PhaseConfig(
@@ -211,6 +215,8 @@ def make_delta3_phase_configs():
         nose_radius=1e6,
         CD=0.5,
         S=4 * 3.14,
+
+        num_segments=5
     )
 
     phase4 = PhaseConfig(
@@ -245,6 +251,8 @@ def make_delta3_phase_configs():
         nose_radius=1e6,
         CD=0.5,
         S=4 * 3.14,
+
+        num_segments=5
     )
 
     return [phase1, phase2, phase3, phase4]
@@ -252,13 +260,6 @@ def make_delta3_phase_configs():
 
 def run_delta3_gto(optimize_design: bool = True):
     phases = make_delta3_phase_configs()
-
-    mass_drops = [
-        m_drop_after_1,  # после фазы 1: 6 сухих ускорителей
-        m_drop_after_2,  # после фазы 2: 3 сухих ускорителя
-        m_drop_after_3,  # после фазы 3: сухая 1 ступень
-        0.0,  # после фазы 4: ничего (последняя)
-    ]
 
     a = 24_500_000
     e = 0.73

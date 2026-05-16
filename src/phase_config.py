@@ -4,8 +4,41 @@ from src.stage_config import StageConfig
 
 @dataclass
 class PhaseConfig(StageConfig):
+    # ===== Фикс параметров =====
+    fix_duration: bool
+    fix_thrust: bool
+    fix_throttle: bool
+    fix_m_dry: bool
+    fix_m_propellant: bool
+    fix_Isp: bool
+
+    # ===== Значения параметров =====
+    duration: float
+    thrust: float
+    throttle: float
+    m_dry: float
+    m_propellant: float
+    Isp: float
+
+    # ===== Диапазоны параметров =====
+    duration_bounds: tuple
+    thrust_bounds: tuple
+    throttle_bounds: tuple
+    m_dry_bounds: tuple
+    m_propellant_bounds: tuple
+    Isp_bounds: tuple
+
+    # ===== Модель =====
+    use_atmosphere: bool
+    q_heat_constraint: bool
+    q_dyn_constraint: bool
+
+    # ===== Аэродинамика =====
+    nose_radius: float  # м, радиус кривизны
+    CD: float  # аэродинамический коэффициент
+    S: float  # м^2, характерная площадь
+
     # ===== Атмосфера =====
-    use_atmosphere: bool = True
     rho_ref: float = 1.225  # кг/м³, плотность на h=0
     h_scale: float = 8.44e3  # м, масштаб высоты
 
@@ -17,20 +50,14 @@ class PhaseConfig(StageConfig):
     g_load_max: float = 10.0  # перегрузка в g
 
     # ===== Сетка =====
-    num_segments: int = 15
+    num_segments: int = 10
     order: int = 3
 
     # ===== Уточнение сетки =====
-    refine: bool = True
+    refine: bool = False
     refine_method: str = 'ph'  # 'hp' или 'ph'
     refine_iter_limit: int = 1
     refine_tol: float = 1.0e-1
     refine_min_order: int = 3
     refine_max_order: int = 3
     refine_smoothness: float = 1.5
-
-    # ===== Multi-stage / management =====
-    fix_duration: bool = False
-    duration_value: float = 100.0
-    optimize_throttle: bool = True
-    throttle_default: float = 1.0

@@ -11,18 +11,17 @@ from src.frame_converter import EARTH_RAD, EARTH_OMEGA, geographic_to_cartesian
 
 def run_multi_stage(
         phases: List[PhaseConfig],
-        mass_drops: List[float],
         launch_lat_deg: float,
         launch_lon_deg: float,
-        launch_alt: float = 0.0,
+        launch_alt: float,
+        objective: str,
         target_a: Optional[float] = None,
-        target_e_max: Optional[float] = None,
+        target_e: Optional[float] = None,
         target_inc_deg: Optional[float] = None,
-        optimize_design: bool = False,
-        optimize_engine: bool = False,
-        objective: str = 'max_mass',
+        target_arg_periapsis_deg: Optional[float] = None,
+        target_raan_deg: Optional[float] = None,
         optimizer_tol: float = 1.0e-4,
-        optimizer_max_iter: int = 500,
+        optimizer_max_iter: int = 1000,
         simulate: bool = True,
 ):
     assert len(mass_drops) == len(phases), \
@@ -38,22 +37,10 @@ def run_multi_stage(
     phase_objs = []
     for i, cfg in enumerate(phases):
         is_first = (i == 0)
-        is_last = (i == (len(phases) - 1))
-
-        if cfg.fix_duration:
-            duration_bounds = (cfg.duration_value * 0.99, cfg.duration_value * 1.01)
-            duration_ref = cfg.duration_value
-        else:
-            duration_bounds = (10.0, 1000.0)
-            duration_ref = 100.0
 
         phase = build_stage_phase(
             cfg,
             is_first_phase=is_first,
-            optimize_design=is_last,
-            optimize_engine=optimize_engine,
-            duration_bounds=duration_bounds,
-            duration_ref=duration_ref,
         )
         traj.add_phase(cfg.name, phase)
         phase_objs.append(phase)
@@ -65,14 +52,14 @@ def run_multi_stage(
         a_name = phases[i].name
         b_name = phases[i + 1].name
 
-        # позиция / скорость / время — непрерывны
         traj.link_phases([a_name, b_name],
-                         vars=['time', 'rx', 'ry', 'rz', 'vx', 'vy', 'vz'])
+                         vars=['time',
+                               'rx', 'ry', 'rz',
+                               'vx', 'vy', 'vz',
+                               'dir_x', 'dir_y', 'dir_z'])
 
-        # масса — со скачком на сухую массу сбрасываемых элементов
-        drop = mass_drops[i]
+        drop = mass_drops[i]  # TODO!!!!!!!!!!!!!!!!!!!!!
         if abs(drop) > 1e-9:
-            # m_final(a) - m_initial(b) = drop  →  m_initial(b) = m_final(a) - drop
             traj.add_linkage_constraint(
                 phase_a=a_name, phase_b=b_name,
                 var_a='m', var_b='m',
@@ -85,25 +72,21 @@ def run_multi_stage(
     # =========================================================
     # Целевая орбита (на последней фазе)
     # =========================================================
+    first_phase = phase_objs[0]
     last_phase = phase_objs[-1]
-
-    last_phase.add_boundary_constraint(
-        'rp = orbit_a * (1 - orbit_e)', loc='final',
-        lower=EARTH_RAD, ref=EARTH_RAD,
-    )
 
     if target_a is not None:
         last_phase.add_boundary_constraint(
             'orbit_a', loc='final',
             lower=target_a - 10e3,
-            upper=target_a + 10e3, ref=target_a,
+            upper=target_a + 10e3, ref=EARTH_RAD,
         )
 
-    if target_e_max is not None:
+    if target_e is not None:
         last_phase.add_boundary_constraint(
             'orbit_e', loc='final',
-            lower=target_e_max - 0.01,
-            upper=target_e_max + 0.01, ref=max(target_e_max, 0.01),
+            lower=target_e - 0.01,
+            upper=target_e + 0.01, ref=1,
         )
 
     if target_inc_deg is not None:
@@ -112,34 +95,35 @@ def run_multi_stage(
             'orbit_inc', loc='final',
             lower=target_inc_rad - 0.01,
             upper=target_inc_rad + 0.01,
-            ref=max(target_inc_rad, 0.1),
+            ref=np.pi,
         )
 
-    last_phase.add_boundary_constraint(
-        'orbit_arg_periapsis', loc='final',
-        lower=np.deg2rad(130.5) - 0.01,
-        upper=np.deg2rad(130.5) + 0.01,
-        ref=np.deg2rad(130.5),
-    )
+    if target_arg_periapsis_deg is not None:
+        target_arg_periapsis_rad = np.deg2rad(target_arg_periapsis_deg)
+        last_phase.add_boundary_constraint(
+            'orbit_arg_periapsis', loc='final',
+            lower=target_arg_periapsis_rad - 0.01,
+            upper=target_arg_periapsis_rad + 0.01,
+            ref=np.pi,
+        )
 
-    # last_phase.add_boundary_constraint(
-    #     'orbit_raan', loc='final',
-    #     lower=np.deg2rad(269.8) - 0.01,
-    #     upper=np.deg2rad(269.8) + 0.01,
-    #     ref=np.deg2rad(269.8),
-    # )
+    if target_raan_deg is not None:
+        target_raan_rad = np.deg2rad(target_raan_deg)
+        last_phase.add_boundary_constraint(
+            'orbit_arg_periapsis', loc='final',
+            lower=target_raan_rad - 0.01,
+            upper=target_raan_rad + 0.01,
+            ref=np.pi,
+        )
 
     # =========================================================
     # Objective
     # =========================================================
-    if objective == 'max_mass':
-        m_initial_estimate = phases[0].m_total()
-        last_phase.add_objective('m', loc='final', ref=-m_initial_estimate)
+    if objective == 'max_final_mass':
+        last_phase.add_objective('m', loc='final', ref=-last_phase.m_dry)
     elif objective == 'min_initial_mass':
-        if not optimize_design:
-            raise ValueError("objective='min_initial_mass' требует optimize_design=True")
-        first_phase = phase_objs[0]
-        first_phase.add_objective('m', loc='initial', ref=phases[0].m_total())
+        m_initial_estimate = first_phase.m_dry + first_phase.m_propellant
+        first_phase.add_objective('m', loc='initial', ref=m_initial_estimate)
     else:
         raise ValueError(f'Неизвестный objective: {objective}')
 
@@ -177,14 +161,12 @@ def run_multi_stage(
     vf_guess = vf_speed * east_eci
 
     # Накопление масс по фазам (для приближений)
-    cumulative_initial_masses = [phases[0].m_total()]
+    cumulative_initial_masses = [first_phase.m_dry + first_phase.m_propellant]
     for i in range(len(phases) - 1):
         m_prev = cumulative_initial_masses[-1]
-        # масса после полного сгорания топлива фазы i и сброса
         m_next = m_prev - phases[i].m_propellant - mass_drops[i]
         cumulative_initial_masses.append(m_next)
 
-    # ---- Накопленное время для guess t_initial ----
     cumulative_t_start = [0.0]
     for cfg in phases[:-1]:
         last_t = cumulative_t_start[-1]
@@ -217,12 +199,10 @@ def run_multi_stage(
         phase.set_state_val('vy', [v_s[1], v_e[1]])
         phase.set_state_val('vz', [v_s[2], v_e[2]])
 
-        # Масса: от стартовой массы фазы до конечной (после сжигания топлива)
         m_initial_phase = cumulative_initial_masses[i]
         m_final_phase = m_initial_phase - cfg.m_propellant
         phase.set_state_val('m', [m_initial_phase, m_final_phase])
 
-        # Направление: интерполируем «зенит → восток» по всем фазам
         d_s = (1 - alpha_s) * zenith0 + alpha_s * east_eci
         d_e = (1 - alpha_e) * zenith0 + alpha_e * east_eci
         d_s /= np.linalg.norm(d_s)
@@ -232,13 +212,12 @@ def run_multi_stage(
         phase.set_control_val('dir_y', [d_s[1], d_e[1]])
         phase.set_control_val('dir_z', [d_s[2], d_e[2]])
 
-        if cfg.optimize_throttle:
+        if not cfg.fix_throttle:
             phase.set_control_val('throttle', [1.0, 1.0])
 
     # =========================================================
     # Старт строго в зенит (для первой фазы)
     # =========================================================
-    first_phase = phase_objs[0]
     first_phase.add_boundary_constraint('dir_x', loc='initial', equals=zenith0[0])
     first_phase.add_boundary_constraint('dir_y', loc='initial', equals=zenith0[1])
     first_phase.add_boundary_constraint('dir_z', loc='initial', equals=zenith0[2])

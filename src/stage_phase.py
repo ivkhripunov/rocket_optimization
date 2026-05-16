@@ -126,6 +126,9 @@ def build_stage_phase(
     if config.q_dyn_constraint:
         phase.add_path_constraint('q_dyn', upper=config.q_dyn_max)
 
+    if config.g_load_constraint:
+        phase.add_path_constraint('g_load', upper=config.g_load_max)
+
     # =========================================================
     # Диагностика
     # =========================================================

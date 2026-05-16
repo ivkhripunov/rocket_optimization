@@ -138,6 +138,7 @@ def make_delta3_phase_configs():
         use_atmosphere=True,
         q_heat_constraint=False,
         q_dyn_constraint=False,
+        g_load_constraint=False,
 
         nose_radius=1e6,
         CD=0.5,
@@ -171,6 +172,7 @@ def make_delta3_phase_configs():
         use_atmosphere=True,
         q_heat_constraint=False,
         q_dyn_constraint=False,
+        g_load_constraint=False,
 
         nose_radius=1e6,
         CD=0.5,
@@ -204,6 +206,7 @@ def make_delta3_phase_configs():
         use_atmosphere=True,
         q_heat_constraint=False,
         q_dyn_constraint=False,
+        g_load_constraint=False,
 
         nose_radius=1e6,
         CD=0.5,
@@ -237,6 +240,7 @@ def make_delta3_phase_configs():
         use_atmosphere=True,
         q_heat_constraint=False,
         q_dyn_constraint=False,
+        g_load_constraint=False,
 
         nose_radius=1e6,
         CD=0.5,

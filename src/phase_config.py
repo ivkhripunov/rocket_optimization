@@ -33,6 +33,7 @@ class PhaseConfig:
     use_atmosphere: bool
     q_heat_constraint: bool
     q_dyn_constraint: bool
+    g_load_constraint: bool
 
     # ===== Аэродинамика =====
     nose_radius: float  # м, радиус кривизны

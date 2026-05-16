@@ -1,9 +1,8 @@
 from dataclasses import dataclass
-from src.stage_config import StageConfig
 
 
 @dataclass
-class PhaseConfig(StageConfig):
+class PhaseConfig:
     # ===== Фикс параметров =====
     fix_duration: bool
     fix_thrust: bool

@@ -155,7 +155,7 @@ def run_multi_stage(
     vf_guess = vf_speed * east_eci
 
     # Накопление масс по фазам (для приближений)
-    cumulative_initial_masses = [first_phase.m_dry + first_phase.m_propellant]
+    cumulative_initial_masses = [phases[0].m_dry + phases[0].m_propellant]
     for i in range(len(phases) - 1):
         m_prev = cumulative_initial_masses[-1]
         m_next = m_prev - phases[i].m_propellant - phases[i].m_dry
@@ -164,7 +164,7 @@ def run_multi_stage(
     cumulative_t_start = [0.0]
     for cfg in phases[:-1]:
         last_t = cumulative_t_start[-1]
-        dur = cfg.duration_value if cfg.fix_duration else 300.0
+        dur = cfg.duration if cfg.fix_duration else 300.0
         cumulative_t_start.append(last_t + dur)
 
     # =========================================================
@@ -181,7 +181,7 @@ def run_multi_stage(
         v_s = v0 + alpha_s * (vf_guess - v0)
         v_e = v0 + alpha_e * (vf_guess - v0)
 
-        duration_init = cfg.duration_value if cfg.fix_duration else 300.0
+        duration_init = cfg.duration if cfg.fix_duration else 300.0
         t_initial = cumulative_t_start[i]
 
         phase.set_time_val(initial=t_initial, duration=duration_init)

@@ -100,8 +100,6 @@ def build_stage_phase(
 
     phase.add_state('m', rate_source='mdot',
                     fix_initial=not free_initial_m,
-                    lower=config.m_dry_bounds[0],
-                    upper=config.m_dry_bounds[1] + config.m_propellant_bounds[1],
                     units='kg', ref=1.0e5, defect_ref=1.0e3)
 
     # =========================================================
@@ -117,8 +115,8 @@ def build_stage_phase(
     phase.add_path_constraint('dir_norm_sq', equals=1.0, ref=1.0)
     phase.add_path_constraint('h', lower=-10.0)
     phase.add_path_constraint('orbit_e', upper=1.01)
-    phase.add_path_constraint('m_excess = m - m_dry', lower=0.0, ref=1.0e3)
 
+    phase.add_path_constraint('m_excess = m - m_dry', lower=0.0, ref=1.0e3)
     phase.add_boundary_constraint('m_init_check = m - m_dry - m_propellant',
                                   loc='initial', equals=0.0, ref=1.0e3)
 

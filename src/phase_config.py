@@ -3,6 +3,8 @@ from dataclasses import dataclass
 
 @dataclass
 class PhaseConfig:
+    name: str
+
     # ===== Фикс параметров =====
     fix_duration: bool
     fix_thrust: bool

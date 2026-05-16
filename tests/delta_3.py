@@ -85,6 +85,7 @@ prop_phase3 = prop_stage1_remaining
 F_phase4 = STAGE2_F
 mdot_phase4 = mdot_stage2
 Isp_phase4 = STAGE2_ISP
+t_phase4 = STAGE2_PROP / mdot_stage2
 
 # =========================================================
 # Стартовая масса = всё на пусковом столе
@@ -111,103 +112,135 @@ m_dry_phase4 = STAGE2_DRY + PAYLOAD  # минимум массы = сухая с
 def make_delta3_phase_configs():
     """4 конфигурации виртуальных ступеней Delta III."""
 
-    common_aero = dict(
-        CD=0.5,
-        S=4 * 3.14,  # площадь Миделя — оценочно
-        nose_radius=1e6,
-    )
-
-    def mbounds(m):
-        return (0.5 * m, 1.5 * m)
-
     phase1 = PhaseConfig(
-        name='phase1',
-        thrust_max=F_phase1,
-        Isp=Isp_phase1,
+        name='phase_1',
+        fix_duration=True,
+        fix_thrust=True,
+        fix_throttle=True,
+        fix_m_dry=True,
+        fix_m_propellant=True,
+        fix_Isp=True,
+
+        duration=t_phase1,
+        thrust=F_phase1,
+        throttle=1.0,
         m_dry=m_after_phase1,
         m_propellant=prop_phase1,
-        m_dry_bounds=mbounds(m_after_phase1),
-        m_propellant_bounds=mbounds(prop_phase1),
-        thrust_max_bounds=(0.5 * F_phase1, 1.5 * F_phase1),
-        Isp_bounds=(0.9 * Isp_phase1, 1.1 * Isp_phase1),
+        Isp=Isp_phase1,
+
+        duration_bounds=(None, None),
+        thrust_bounds=(None, None),
+        throttle_bounds=(None, None),
+        m_dry_bounds=(None, None),
+        m_propellant_bounds=(None, None),
+        Isp_bounds=(None, None),
+
         use_atmosphere=True,
-        fix_duration=True,
-        duration_value=t_phase1,
-        optimize_throttle=False,
-        throttle_default=1.0,
-        num_segments=7,
-        order=3,
-        **common_aero,
-        q_heat_max=1.0e8,
-        q_dyn_max=1.0e8,
-        g_load_max=100.0,
+        q_heat_constraint=False,
+        q_dyn_constraint=False,
+
+        nose_radius=1e6,
+        CD=0.5,
+        S=4 * 3.14,
     )
 
     phase2 = PhaseConfig(
-        name='phase2',
-        thrust_max=F_phase2,
-        Isp=Isp_phase2,
+        name='phase_2',
+
+        fix_duration=True,
+        fix_thrust=True,
+        fix_throttle=True,
+        fix_m_dry=True,
+        fix_m_propellant=True,
+        fix_Isp=True,
+
+        duration=t_phase2,
+        thrust=F_phase2,
+        throttle=1.0,
         m_dry=m_after_phase2,
         m_propellant=prop_phase2,
-        m_dry_bounds=mbounds(m_after_phase2),
-        m_propellant_bounds=mbounds(prop_phase2),
-        thrust_max_bounds=(0.5 * F_phase2, 1.5 * F_phase2),
-        Isp_bounds=(0.9 * Isp_phase2, 1.1 * Isp_phase2),
+        Isp=Isp_phase2,
+
+        duration_bounds=(None, None),
+        thrust_bounds=(None, None),
+        throttle_bounds=(None, None),
+        m_dry_bounds=(None, None),
+        m_propellant_bounds=(None, None),
+        Isp_bounds=(None, None),
+
         use_atmosphere=True,
-        fix_duration=True,
-        duration_value=t_phase2,
-        optimize_throttle=False,
-        throttle_default=1.0,
-        num_segments=7,
-        order=3,
-        **common_aero,
-        q_heat_max=1.0e8,
-        q_dyn_max=1.0e8,
-        g_load_max=100.0,
+        q_heat_constraint=False,
+        q_dyn_constraint=False,
+
+        nose_radius=1e6,
+        CD=0.5,
+        S=4 * 3.14,
     )
 
     phase3 = PhaseConfig(
-        name='phase3',
-        thrust_max=F_phase3,
-        Isp=Isp_phase3,
+        name='phase_3',
+
+        fix_duration=True,
+        fix_thrust=True,
+        fix_throttle=True,
+        fix_m_dry=True,
+        fix_m_propellant=True,
+        fix_Isp=True,
+
+        duration=t_phase3,
+        thrust=F_phase3,
+        throttle=1.0,
         m_dry=m_after_phase3,
         m_propellant=prop_phase3,
-        m_dry_bounds=mbounds(m_after_phase3),
-        m_propellant_bounds=mbounds(prop_phase3),
-        thrust_max_bounds=(0.5 * F_phase3, 1.5 * F_phase3),
-        Isp_bounds=(0.9 * Isp_phase3, 1.1 * Isp_phase3),
+        Isp=Isp_phase3,
+
+        duration_bounds=(None, None),
+        thrust_bounds=(None, None),
+        throttle_bounds=(None, None),
+        m_dry_bounds=(None, None),
+        m_propellant_bounds=(None, None),
+        Isp_bounds=(None, None),
+
         use_atmosphere=True,
-        fix_duration=True,
-        duration_value=t_phase3,
-        optimize_throttle=False,
-        throttle_default=1.0,
-        num_segments=7,
-        order=3,
-        **common_aero,
-        q_heat_max=1.0e10,
-        q_dyn_max=1.0e10,
-        g_load_max=100.0,
+        q_heat_constraint=False,
+        q_dyn_constraint=False,
+
+        nose_radius=1e6,
+        CD=0.5,
+        S=4 * 3.14,
     )
 
     phase4 = PhaseConfig(
-        name='phase4',
-        thrust_max=F_phase4,
-        Isp=Isp_phase4,
-        m_dry=m_dry_phase4,
-        m_propellant=STAGE2_PROP,
-        m_dry_bounds=(m_dry_phase4 - 1, m_dry_phase4 + 1),
-        m_propellant_bounds=mbounds(STAGE2_PROP),
-        thrust_max_bounds=(0.5 * F_phase4, 1.5 * F_phase4),
-        Isp_bounds=(0.9 * Isp_phase4, 1.1 * Isp_phase4),
-        use_atmosphere=False,
+        name='phase_4',
+
         fix_duration=False,
-        optimize_throttle=False,
-        throttle_default=1.0,
-        num_segments=7,
-        order=3,
-        q_heat_max=1.0e8,
-        q_dyn_max=1.0e8,
-        g_load_max=100.0,
+        fix_thrust=True,
+        fix_throttle=True,
+        fix_m_dry=True,
+        fix_m_propellant=True,
+        fix_Isp=True,
+
+        duration=t_phase4,
+        thrust=F_phase4,
+        throttle=1.0,
+        m_dry=STAGE2_DRY,
+        m_propellant=STAGE2_PROP,
+        Isp=Isp_phase4,
+
+        duration_bounds=(1., 1.1 * t_phase4),
+        thrust_bounds=(None, None),
+        throttle_bounds=(None, None),
+        m_dry_bounds=(None, None),
+        m_propellant_bounds=(None, None),
+        Isp_bounds=(None, None),
+
+        use_atmosphere=True,
+        q_heat_constraint=False,
+        q_dyn_constraint=False,
+
+        nose_radius=1e6,
+        CD=0.5,
+        S=4 * 3.14,
     )
 
     return [phase1, phase2, phase3, phase4]
@@ -223,23 +256,23 @@ def run_delta3_gto(optimize_design: bool = True):
         0.0,  # после фазы 4: ничего (последняя)
     ]
 
-    a_GTO = 24_500_000  # 24_500_000.0
-    e_GTO = 0.73
+    a = 24_500_000
+    e = 0.73
+    i = 28.5
+    w = 130.5
 
     return run_multi_stage(
         phases=phases,
-        mass_drops=mass_drops,
         launch_lat_deg=28.5,
         launch_lon_deg=-80.5,
         launch_alt=0.0,
-        target_a=a_GTO,
-        target_e_max=e_GTO,
-        target_inc_deg=28.5,
-        optimize_design=optimize_design,
-        optimize_engine=False,
-        objective='min_initial_mass',
-        optimizer_tol=1.0e-3,
-        optimizer_max_iter=500,
+        objective='max_final_mass',
+        target_a=a,
+        target_e=e,
+        target_inc_deg=i,
+        target_arg_periapsis_deg=w,
+        optimizer_tol=1.0e-4,
+        optimizer_max_iter=1000,
         simulate=True,
     )
 

@@ -24,9 +24,6 @@ def run_multi_stage(
         optimizer_max_iter: int = 1000,
         simulate: bool = True,
 ):
-    assert len(mass_drops) == len(phases), \
-        f'mass_drops должен иметь длину {len(phases)}, получено {len(mass_drops)}'
-
     p = om.Problem()
     traj = dm.Trajectory()
     p.model.add_subsystem('traj', traj)

@@ -110,7 +110,7 @@ def run_multi_stage(
     if target_raan_deg is not None:
         target_raan_rad = np.deg2rad(target_raan_deg)
         last_phase.add_boundary_constraint(
-            'orbit_arg_periapsis', loc='final',
+            'orbit_raan', loc='final',
             lower=target_raan_rad - 0.01,
             upper=target_raan_rad + 0.01,
             ref=np.pi,
@@ -120,9 +120,9 @@ def run_multi_stage(
     # Objective
     # =========================================================
     if objective == 'max_final_mass':
-        last_phase.add_objective('m', loc='final', ref=-last_phase.m_dry)
+        last_phase.add_objective('m', loc='final', ref=-phases[-1].m_dry)
     elif objective == 'min_initial_mass':
-        m_initial_estimate = first_phase.m_dry + first_phase.m_propellant
+        m_initial_estimate = phases[0].m_dry + phases[0].m_propellant
         first_phase.add_objective('m', loc='initial', ref=m_initial_estimate)
     else:
         raise ValueError(f'Неизвестный objective: {objective}')

@@ -32,8 +32,9 @@ def build_stage_phase(
 
     phase.set_time_options(
         fix_initial=is_first_phase,
-        fix_duration=config.fix_duration,
+        fix_duration=not config.fix_duration,
         duration_val=config.duration,
+        duration_bounds=config.duration_bounds,
         duration_ref=config.duration,
         units='s',
     )
@@ -41,7 +42,7 @@ def build_stage_phase(
     phase.add_parameter(
         'thrust', units='N',
         val=config.thrust,
-        opt=config.fix_thrust,
+        opt=not config.fix_thrust,
         lower=config.thrust_bounds[0],
         upper=config.thrust_bounds[1],
         ref=1e6,
@@ -49,7 +50,7 @@ def build_stage_phase(
 
     phase.add_control('throttle',
                       val=config.throttle,
-                      opt=config.fix_throttle,
+                      opt=not config.fix_throttle,
                       lower=config.throttle_bounds[0],
                       upper=config.throttle_bounds[1],
                       ref=1.,
@@ -58,7 +59,7 @@ def build_stage_phase(
     phase.add_parameter(
         'm_dry', units='kg',
         val=config.m_dry,
-        opt=config.fix_m_dry,
+        opt=not config.fix_m_dry,
         lower=config.m_dry_bounds[0],
         upper=config.m_dry_bounds[1],
         ref=1.0e3,
@@ -67,7 +68,7 @@ def build_stage_phase(
     phase.add_parameter(
         'm_propellant', units='kg',
         val=config.m_propellant,
-        opt=config.fix_m_propellant,
+        opt=not config.fix_m_propellant,
         lower=config.m_propellant_bounds[0],
         upper=config.m_propellant_bounds[1],
         ref=1.0e5,
@@ -76,7 +77,7 @@ def build_stage_phase(
     phase.add_parameter(
         'Isp', units='s',
         val=config.Isp,
-        opt=config.fix_Isp,
+        opt=not config.fix_Isp,
         lower=config.Isp_bounds[0],
         upper=config.Isp_bounds[1],
         ref=300.0,
@@ -99,8 +100,8 @@ def build_stage_phase(
 
     phase.add_state('m', rate_source='mdot',
                     fix_initial=not free_initial_m,
-                    lower=config.m_dry,
-                    upper=config.m_dry + config.m_propellant,
+                    lower=config.m_dry_bounds[0],
+                    upper=config.m_dry_bounds[1] + config.m_propellant_bounds[1],
                     units='kg', ref=1.0e5, defect_ref=1.0e3)
 
     # =========================================================

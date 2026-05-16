@@ -32,7 +32,7 @@ def build_stage_phase(
 
     phase.set_time_options(
         fix_initial=is_first_phase,
-        fix_duration=not config.fix_duration,
+        fix_duration=config.fix_duration,
         duration_val=config.duration,
         duration_bounds=config.duration_bounds,
         duration_ref=config.duration,

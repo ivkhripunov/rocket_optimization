@@ -58,16 +58,13 @@ def run_multi_stage(
                                'vx', 'vy', 'vz',
                                'dir_x', 'dir_y', 'dir_z'])
 
-        drop = mass_drops[i]  # TODO!!!!!!!!!!!!!!!!!!!!!
-        if abs(drop) > 1e-9:
-            traj.add_linkage_constraint(
-                phase_a=a_name, phase_b=b_name,
-                var_a='m', var_b='m',
-                loc_a='final', loc_b='initial',
-                equals=drop, ref=1.0e3,
-            )
-        else:
-            traj.link_phases([a_name, b_name], vars=['m'])
+        traj.add_linkage_constraint(
+            phase_a=a_name, phase_b=b_name,
+            var_a='m', var_b='m',
+            loc_a='final', loc_b='initial',
+            lower=0.0,
+            ref=1.0e3,
+        )
 
     # =========================================================
     # Целевая орбита (на последней фазе)

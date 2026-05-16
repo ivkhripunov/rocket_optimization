@@ -38,18 +38,19 @@ def run_multi_stage(
     phase_objs = []
     for i, cfg in enumerate(phases):
         is_first = (i == 0)
+        is_last = (i == (len(phases) - 1))
 
         if cfg.fix_duration:
-            duration_bounds = (cfg.duration_value * 0.9, cfg.duration_value * 1.1)
+            duration_bounds = (cfg.duration_value * 0.99, cfg.duration_value * 1.01)
             duration_ref = cfg.duration_value
         else:
-            duration_bounds = (10.0, 2000.0)
-            duration_ref = 300.0
+            duration_bounds = (10.0, 1000.0)
+            duration_ref = 100.0
 
         phase = build_stage_phase(
             cfg,
             is_first_phase=is_first,
-            optimize_design=optimize_design,
+            optimize_design=is_last,
             optimize_engine=optimize_engine,
             duration_bounds=duration_bounds,
             duration_ref=duration_ref,
@@ -101,18 +102,32 @@ def run_multi_stage(
     if target_e_max is not None:
         last_phase.add_boundary_constraint(
             'orbit_e', loc='final',
-            lower=target_e_max - 0.05,
-            upper=target_e_max + 0.05, ref=max(target_e_max, 0.01),
+            lower=target_e_max - 0.01,
+            upper=target_e_max + 0.01, ref=max(target_e_max, 0.01),
         )
 
     if target_inc_deg is not None:
         target_inc_rad = np.deg2rad(target_inc_deg)
         last_phase.add_boundary_constraint(
             'orbit_inc', loc='final',
-            lower=target_inc_rad - 0.05,
-            upper=target_inc_rad + 0.05,
+            lower=target_inc_rad - 0.01,
+            upper=target_inc_rad + 0.01,
             ref=max(target_inc_rad, 0.1),
         )
+
+    last_phase.add_boundary_constraint(
+        'orbit_arg_periapsis', loc='final',
+        lower=np.deg2rad(130.5) - 0.01,
+        upper=np.deg2rad(130.5) + 0.01,
+        ref=np.deg2rad(130.5),
+    )
+
+    # last_phase.add_boundary_constraint(
+    #     'orbit_raan', loc='final',
+    #     lower=np.deg2rad(269.8) - 0.01,
+    #     upper=np.deg2rad(269.8) + 0.01,
+    #     ref=np.deg2rad(269.8),
+    # )
 
     # =========================================================
     # Objective

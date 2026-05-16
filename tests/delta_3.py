@@ -24,7 +24,7 @@ from src.phase_config import PhaseConfig
 from src.multi_stage import run_multi_stage
 from src.frame_converter import EARTH_RAD
 from src.stage_ode import G0
-from src.visualize import plot_eci_trajectory_3d, plot_eci_trajectory_zoomed, plot_multi_stage
+from src.visualize import plot_eci_trajectory_3d, plot_eci_trajectory_zoomed, plot_multi_stage, print_design_results
 from pathlib import Path
 
 # =========================================================
@@ -112,9 +112,9 @@ def make_delta3_phase_configs():
     """4 конфигурации виртуальных ступеней Delta III."""
 
     common_aero = dict(
-        CD=0.,
-        S=1.,  # площадь Миделя — оценочно
-        nose_radius=0.7,
+        CD=0.5,
+        S=4 * 3.14,  # площадь Миделя — оценочно
+        nose_radius=1e6,
     )
 
     def mbounds(m):
@@ -130,14 +130,17 @@ def make_delta3_phase_configs():
         m_propellant_bounds=mbounds(prop_phase1),
         thrust_max_bounds=(0.5 * F_phase1, 1.5 * F_phase1),
         Isp_bounds=(0.9 * Isp_phase1, 1.1 * Isp_phase1),
-        use_atmosphere=False,
-        fix_duration=False,
+        use_atmosphere=True,
+        fix_duration=True,
         duration_value=t_phase1,
-        optimize_throttle=True,
+        optimize_throttle=False,
         throttle_default=1.0,
         num_segments=7,
         order=3,
         **common_aero,
+        q_heat_max=1.0e8,
+        q_dyn_max=1.0e8,
+        g_load_max=100.0,
     )
 
     phase2 = PhaseConfig(
@@ -150,14 +153,17 @@ def make_delta3_phase_configs():
         m_propellant_bounds=mbounds(prop_phase2),
         thrust_max_bounds=(0.5 * F_phase2, 1.5 * F_phase2),
         Isp_bounds=(0.9 * Isp_phase2, 1.1 * Isp_phase2),
-        use_atmosphere=False,
-        fix_duration=False,
+        use_atmosphere=True,
+        fix_duration=True,
         duration_value=t_phase2,
-        optimize_throttle=True,
+        optimize_throttle=False,
         throttle_default=1.0,
         num_segments=7,
         order=3,
         **common_aero,
+        q_heat_max=1.0e8,
+        q_dyn_max=1.0e8,
+        g_load_max=100.0,
     )
 
     phase3 = PhaseConfig(
@@ -170,14 +176,17 @@ def make_delta3_phase_configs():
         m_propellant_bounds=mbounds(prop_phase3),
         thrust_max_bounds=(0.5 * F_phase3, 1.5 * F_phase3),
         Isp_bounds=(0.9 * Isp_phase3, 1.1 * Isp_phase3),
-        use_atmosphere=False,
-        fix_duration=False,
+        use_atmosphere=True,
+        fix_duration=True,
         duration_value=t_phase3,
-        optimize_throttle=True,
+        optimize_throttle=False,
         throttle_default=1.0,
         num_segments=7,
         order=3,
         **common_aero,
+        q_heat_max=1.0e10,
+        q_dyn_max=1.0e10,
+        g_load_max=100.0,
     )
 
     phase4 = PhaseConfig(
@@ -186,19 +195,19 @@ def make_delta3_phase_configs():
         Isp=Isp_phase4,
         m_dry=m_dry_phase4,
         m_propellant=STAGE2_PROP,
-        m_dry_bounds=mbounds(m_dry_phase4),
+        m_dry_bounds=(m_dry_phase4 - 1, m_dry_phase4 + 1),
         m_propellant_bounds=mbounds(STAGE2_PROP),
         thrust_max_bounds=(0.5 * F_phase4, 1.5 * F_phase4),
         Isp_bounds=(0.9 * Isp_phase4, 1.1 * Isp_phase4),
         use_atmosphere=False,
         fix_duration=False,
-        optimize_throttle=True,
+        optimize_throttle=False,
         throttle_default=1.0,
         num_segments=7,
         order=3,
         q_heat_max=1.0e8,
-        q_dyn_max=1.0e6,
-        g_load_max=10.0,
+        q_dyn_max=1.0e8,
+        g_load_max=100.0,
     )
 
     return [phase1, phase2, phase3, phase4]
@@ -214,7 +223,7 @@ def run_delta3_gto(optimize_design: bool = True):
         0.0,  # после фазы 4: ничего (последняя)
     ]
 
-    a_GTO = 24500e3  # 24_500_000.0
+    a_GTO = 24_500_000  # 24_500_000.0
     e_GTO = 0.73
 
     return run_multi_stage(
@@ -224,12 +233,12 @@ def run_delta3_gto(optimize_design: bool = True):
         launch_lon_deg=-80.5,
         launch_alt=0.0,
         target_a=a_GTO,
-        target_e_max=e_GTO + 0.02,
+        target_e_max=e_GTO,
         target_inc_deg=28.5,
         optimize_design=optimize_design,
         optimize_engine=False,
-        objective='max_mass',
-        optimizer_tol=1.0e-4,
+        objective='min_initial_mass',
+        optimizer_tol=1.0e-3,
         optimizer_max_iter=500,
         simulate=True,
     )
@@ -292,3 +301,8 @@ plot_eci_trajectory_3d(Path(sol_db), phase_names=phase_names)
 plot_eci_trajectory_zoomed(Path(sol_db), phase_names=phase_names)
 
 plot_multi_stage(sol_db, sim_db, phase_names=phase_names)
+
+phase_configs = make_delta3_phase_configs()
+mass_drops = [m_drop_after_1, m_drop_after_2, m_drop_after_3, 0.0]
+
+print_design_results(p, phase_configs, mass_drops)

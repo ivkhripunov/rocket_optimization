@@ -132,26 +132,16 @@ def build_stage_phase(
     # =========================================================
     # Throttle — control или фиксированный параметр
     # =========================================================
-    if config.optimize_throttle:
-        phase.add_control('throttle', opt=True,
-                          lower=0.0, upper=1.0,
-                          continuity=True, rate_continuity=True)
-    else:
-        phase.add_parameter('throttle',
-                            val=config.throttle_default,
-                            opt=False)
+    phase.add_parameter('throttle',
+                        val=config.throttle_default,
+                        opt=False)
 
     # =========================================================
     # Путевые ограничения
     # =========================================================
     phase.add_path_constraint('dir_norm_sq', equals=1.0, ref=1.0)
-    phase.add_path_constraint('h', lower=-100.0)
-    phase.add_path_constraint('q_heat', upper=config.q_heat_max,
-                              ref=config.q_heat_max)
-    phase.add_path_constraint('q_dyn', upper=config.q_dyn_max,
-                              ref=config.q_dyn_max)
-    phase.add_path_constraint('g_load', upper=config.g_load_max,
-                              ref=config.g_load_max)
+    phase.add_path_constraint('h', lower=-10.0)
+    phase.add_path_constraint('orbit_e', upper=1.01)
 
     # =========================================================
     # Диагностика
@@ -159,18 +149,8 @@ def build_stage_phase(
     for n in ('r_mag', 'v_mag', 'v_radial',
               'dir_norm_sq', 'h', 'thrust_actual',
               'q_heat', 'q_dyn', 'g_load',
-              'orbit_a', 'orbit_e', 'orbit_inc'):
+              'orbit_a', 'orbit_e', 'orbit_inc',
+              'orbit_raan', 'orbit_arg_periapsis'):
         phase.add_timeseries_output(n)
-
-    # =========================================================
-    # Уточнение сетки
-    # =========================================================
-    phase.set_refine_options(
-        refine=config.refine,
-        tol=config.refine_tol,
-        min_order=config.refine_min_order,
-        max_order=config.refine_max_order,
-        smoothness_factor=config.refine_smoothness,
-    )
 
     return phase

@@ -4,6 +4,9 @@ import openmdao.api as om
 import numpy as np
 from pathlib import Path
 
+from src.frame_converter import EARTH_RAD
+from src.stage_ode import EARTH_MU, G0
+
 R_EARTH = 6_378_137.0  # м, экваториальный радиус WGS-84
 
 # Подписи и масштабы для всех известных переменных (2D и 3D задач)
@@ -387,3 +390,117 @@ def plot_multi_stage(sol_db, sim_db, phase_names):
         fig.savefig(out_path, dpi=150)
         plt.close(fig)
         print(f'сохранён: {out_path}')
+
+
+def print_design_results(p, phase_configs, mass_drops):
+    """
+    Печатает результаты оптимизации для multi-stage задачи:
+    - параметры каждой фазы (тяга, Isp, m_dry, m_propellant)
+    - сравнение с исходным конфигом
+    - финальная орбита
+    - суммарный ΔV-бюджет
+
+    Parameters
+    ----------
+    p : OpenMDAO Problem (после dm.run_problem)
+    phase_configs : list[PhaseConfig]
+    mass_drops : list[float]
+    """
+
+    def get_param(phase_name, var):
+        val = p.get_val(f'traj.phases.{phase_name}.parameter_vals:{var}')
+        return float(np.asarray(val).ravel()[0])
+
+    def get_timeseries(phase_name, var):
+        """Timeseries переменной с фазы."""
+        return p.get_val(f'traj.{phase_name}.timeseries.{var}').ravel()
+
+    print('=' * 78)
+    print('Результаты оптимизации конструкции')
+    print('=' * 78)
+
+    # ===== По фазам =====
+    total_dry = 0.0
+    total_propel = 0.0
+    total_initial = 0.0
+
+    for i, cfg in enumerate(phase_configs):
+        name = cfg.name
+        print(f'\n--- {name} ---')
+
+        thrust = get_param(name, 'thrust_max')
+        isp = get_param(name, 'Isp')
+        m_dry = get_param(name, 'm_dry')
+        m_prop = get_param(name, 'm_propellant')
+
+        # Сравниваем с исходным конфигом
+        rows = [
+            ('thrust_max', 'Н', thrust, cfg.thrust_max),
+            ('Isp', 'с', isp, cfg.Isp),
+            ('m_dry', 'кг', m_dry, cfg.m_dry),
+            ('m_propellant', 'кг', m_prop, cfg.m_propellant),
+        ]
+        for var, unit, val, initial in rows:
+            delta = (val - initial) / initial * 100 if initial != 0 else 0.0
+            print(f'  {var:14s} {val:>15,.2f} {unit:4s}'
+                  f'  (исх: {initial:>13,.2f}, Δ {delta:+.2f}%)')
+
+        # Длительность фазы
+        try:
+            t = get_timeseries(name, 'time')
+            duration = t[-1] - t[0]
+            print(f'  длительность   {duration:>15.2f} с')
+        except KeyError:
+            pass
+
+        total_propel += m_prop
+        if i == 0:
+            total_initial = m_dry + m_prop  # начальная масса
+        total_dry += m_dry
+
+    print(f'\nИтого:')
+    print(f'  Старт. масса:  {total_initial:>15,.2f} кг')
+    print(f'  Сум. топливо:  {total_propel:>15,.2f} кг')
+
+    # ===== Финальная орбита =====
+    print('\n--- Финальная орбита ---')
+    last_name = phase_configs[-1].name
+
+    a_final = get_timeseries(last_name, 'orbit_a')[-1]
+    e_final = get_timeseries(last_name, 'orbit_e')[-1]
+    i_final = get_timeseries(last_name, 'orbit_inc')[-1]
+    rmag_f = get_timeseries(last_name, 'r_mag')[-1]
+    vmag_f = get_timeseries(last_name, 'v_mag')[-1]
+
+    h_perigee = a_final * (1 - e_final) - EARTH_RAD
+    h_apogee = a_final * (1 + e_final) - EARTH_RAD
+
+    print(f'  Большая полуось a: {a_final / 1e3:>10.2f} км')
+    print(f'  Эксцентриситет e:  {e_final:>10.5f}')
+    print(f'  Наклонение i:      {np.degrees(i_final):>10.3f}°')
+    print(f'  Высота перигея:    {h_perigee / 1e3:>10.2f} км')
+    print(f'  Высота апогея:     {h_apogee / 1e3:>10.2f} км')
+    print(f'  |r| на финале:     {rmag_f / 1e3:>10.2f} км')
+    print(f'  |v| на финале:     {vmag_f:>10.2f} м/с')
+
+    # ===== Финальная масса =====
+    m_final = get_timeseries(last_name, 'm')[-1]
+    print(f'  Масса на орбите:   {m_final:>10.2f} кг')
+
+    # ===== ΔV-бюджет =====
+    print('\n--- ΔV-бюджет по фазам (Циолковский) ---')
+    total_dv = 0.0
+    for cfg in phase_configs:
+        name = cfg.name
+        try:
+            m = get_timeseries(name, 'm')
+            isp = get_param(name, 'Isp')
+            dv = isp * G0 * np.log(m[0] / m[-1])
+            total_dv += dv
+            print(f'  {name}: m {m[0]:>10,.0f} → {m[-1]:>10,.0f} кг'
+                  f'   ΔV = {dv:>8.0f} м/с')
+        except (KeyError, ValueError, FloatingPointError):
+            pass
+    print(f'  ИТОГО:                                  ΔV = {total_dv:>8.0f} м/с')
+
+    print('=' * 78)

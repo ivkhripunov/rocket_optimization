@@ -7,6 +7,7 @@ from src.phase_config import PhaseConfig
 from src.stage_phase import build_stage_phase
 from src.stage_ode import EARTH_MU
 from src.frame_converter import EARTH_RAD, EARTH_OMEGA, geographic_to_cartesian
+from src.target_orbit import TargetOrbit, apply_target_orbit
 
 
 def run_multi_stage(
@@ -15,11 +16,7 @@ def run_multi_stage(
         launch_lon_deg: float,
         launch_alt: float,
         objective: str,
-        target_a: Optional[float] = None,
-        target_e: Optional[float] = None,
-        target_inc_deg: Optional[float] = None,
-        target_arg_periapsis_deg: Optional[float] = None,
-        target_raan_deg: Optional[float] = None,
+        target_orbit: TargetOrbit,
         optimizer_tol: float = 1.0e-4,
         optimizer_max_iter: int = 1000,
         simulate: bool = True,
@@ -69,46 +66,7 @@ def run_multi_stage(
     first_phase = phase_objs[0]
     last_phase = phase_objs[-1]
 
-    if target_a is not None:
-        last_phase.add_boundary_constraint(
-            'orbit_a', loc='final',
-            lower=target_a - 10e3,
-            upper=target_a + 10e3, ref=EARTH_RAD,
-        )
-
-    if target_e is not None:
-        last_phase.add_boundary_constraint(
-            'orbit_e', loc='final',
-            lower=target_e - 0.01,
-            upper=target_e + 0.01, ref=1,
-        )
-
-    if target_inc_deg is not None:
-        target_inc_rad = np.deg2rad(target_inc_deg)
-        last_phase.add_boundary_constraint(
-            'orbit_inc', loc='final',
-            lower=target_inc_rad - 0.01,
-            upper=target_inc_rad + 0.01,
-            ref=np.pi,
-        )
-
-    if target_arg_periapsis_deg is not None:
-        target_arg_periapsis_rad = np.deg2rad(target_arg_periapsis_deg)
-        last_phase.add_boundary_constraint(
-            'orbit_arg_periapsis', loc='final',
-            lower=target_arg_periapsis_rad - 0.01,
-            upper=target_arg_periapsis_rad + 0.01,
-            ref=np.pi,
-        )
-
-    if target_raan_deg is not None:
-        target_raan_rad = np.deg2rad(target_raan_deg)
-        last_phase.add_boundary_constraint(
-            'orbit_raan', loc='final',
-            lower=target_raan_rad - 0.01,
-            upper=target_raan_rad + 0.01,
-            ref=np.pi,
-        )
+    apply_target_orbit(last_phase, target_orbit)
 
     # =========================================================
     # Objective
@@ -149,7 +107,7 @@ def run_multi_stage(
     east_eci = np.array([-np.sin(lon0), np.cos(lon0), 0.0])
 
     # Грубая оценка финальной точки
-    rf_mag = target_a if target_a is not None else EARTH_RAD + 200_000.0
+    rf_mag = target_orbit.a if target_orbit.a is not None else EARTH_RAD + 200_000.0
     rf_guess = zenith0 * rf_mag
     vf_speed = float(np.sqrt(EARTH_MU / rf_mag))
     vf_guess = vf_speed * east_eci

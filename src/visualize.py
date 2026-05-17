@@ -504,3 +504,35 @@ def print_design_results(p, phase_configs, mass_drops):
     print(f'  ИТОГО:                                  ΔV = {total_dv:>8.0f} м/с')
 
     print('=' * 78)
+
+    # ===== Остаток топлива последней ступени =====
+    print('\n--- Остаток топлива последней ступени ---')
+    last_name = phase_configs[-1].name
+
+    try:
+        m_end = get_timeseries(last_name, 'm')[-1]
+        m_dry_p = get_param(last_name, 'm_dry')
+        m_prop = get_param(last_name, 'm_propellant')
+
+        m_excess_final = m_end - m_dry_p
+        prop_consumed = m_prop - m_excess_final
+        fraction_used = prop_consumed / m_prop * 100 if m_prop > 0 else 0.0
+
+        print(f'  m_final:          {m_end:>12,.2f} кг')
+        print(f'  m_dry (min):      {m_dry_p:>12,.2f} кг')
+        print(f'  m_propellant:     {m_prop:>12,.2f} кг  (доступно)')
+        print(f'  Остаток (m_excess):{m_excess_final:>11,.2f} кг  ← неизрасходованное топливо')
+        print(f'  Сожжено:          {prop_consumed:>12,.2f} кг  ({fraction_used:.1f}% от доступного)')
+
+        if m_excess_final < 0:
+            print(f'  ⚠️  ВНИМАНИЕ: m_excess < 0 ({m_excess_final:.1f} кг) — '
+                  f'нарушен path-constraint m >= m_dry!')
+        elif m_excess_final < 1.0:
+            print(f'  ✓  Топливо почти полностью выработано')
+        else:
+            print(f'  ℹ  Запас: можно было взять ещё ~{m_excess_final:.0f} кг полезной нагрузки')
+
+    except KeyError as e:
+        print(f'  не удалось прочитать: {e}')
+
+    print('=' * 78)

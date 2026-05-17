@@ -1,3 +1,5 @@
+import shutil
+
 import numpy as np
 from src.phase_config import PhaseConfig
 from src.multi_stage import run_multi_stage
@@ -88,7 +90,7 @@ m_initial_p4 = m_after_phase3 - m_drop_after_3  # ≈ STAGE2_TOTAL + PAYLOAD
 m_dry_phase4 = STAGE2_DRY + PAYLOAD  # минимум массы = сухая ст2 + ПН
 
 
-def make_delta3_phase_configs(use_atmosphere: bool):
+def make_delta3_phase_configs(use_atmosphere: bool, CD: float):
     """4 конфигурации виртуальных ступеней Delta III."""
 
     phase1 = PhaseConfig(
@@ -120,7 +122,7 @@ def make_delta3_phase_configs(use_atmosphere: bool):
         g_load_constraint=False,
 
         nose_radius=1e6,
-        CD=0.5,
+        CD=CD,
         S=4 * 3.14,
 
         num_segments=5
@@ -156,7 +158,7 @@ def make_delta3_phase_configs(use_atmosphere: bool):
         g_load_constraint=False,
 
         nose_radius=1e6,
-        CD=0.5,
+        CD=CD,
         S=4 * 3.14,
 
         num_segments=5
@@ -192,7 +194,7 @@ def make_delta3_phase_configs(use_atmosphere: bool):
         g_load_constraint=False,
 
         nose_radius=1e6,
-        CD=0.5,
+        CD=CD,
         S=4 * 3.14,
 
         num_segments=5
@@ -228,7 +230,7 @@ def make_delta3_phase_configs(use_atmosphere: bool):
         g_load_constraint=False,
 
         nose_radius=1e6,
-        CD=0.5,
+        CD=CD,
         S=4 * 3.14,
 
         num_segments=10
@@ -237,31 +239,55 @@ def make_delta3_phase_configs(use_atmosphere: bool):
     return [phase1, phase2, phase3, phase4]
 
 
-def run_delta3_gto():
+def run_delta3_gto(init_db: str = None):
+    orbit_steps = [
+        TargetOrbit(
+            a=24_500_000, a_bounds=(-500_000, +500_000),
+            e=0.73, e_bounds=(-0.05, +0.05),
+            #arg_periapsis_deg=130.5, arg_periapsis_bounds_deg=(-20.0, +20.0),
+            raan_deg=269.8, raan_bounds_deg=(-20.0, +20.0),
+        ),
 
-    phases = make_delta3_phase_configs(use_atmosphere=False)
+        # TargetOrbit(
+        #     a=24_500_000, a_bounds=(-500_000, +500_000),
+        #     e=0.73, e_bounds=(-0.05, +0.05),
+        #     # arg_periapsis_deg=130.5, arg_periapsis_bounds_deg=(-2.0, +2.0),
+        #     # raan_deg=269.8, raan_bounds_deg=(-2.0, +2.0),
+        # ),
+    ]
 
-    GTO = TargetOrbit(
-        a=24_500_000,
-        e=0.73,
-        inc_deg=28.5,
+    prev_sol_db = init_db
 
-        a_bounds=(-500_000, +500_000),
-        e_bounds=(-0.02, +0.02),
-        inc_bounds_deg=(-0.5, +0.5),
-    )
+    for step, orbit in enumerate(orbit_steps):
+        shutil.rmtree('coloring_files', ignore_errors=True)
 
-    return run_multi_stage(
-        phases=phases,
-        launch_lat_deg=28.5,
-        launch_lon_deg=0.,
-        launch_alt=0.0,
-        objective='max_final_mass',
-        target_orbit=GTO,
-        optimizer_tol=1.0e-4,
-        optimizer_max_iter=1000,
-        simulate=True,
-    )
+        is_last = (step == len(orbit_steps) - 1)
+        tol = 1e-5 if is_last else 1e-5
+        max_iter = 500 if is_last else 500
+
+        phases = make_delta3_phase_configs(CD=0.5, use_atmosphere=True)
+
+        print(f'\n{"=" * 60}')
+        print(f'Шаг {step + 1}/{len(orbit_steps)}: {orbit}')
+        print(f'tol={tol:.0e}  restart={"да" if prev_sol_db else "нет"}')
+        print('=' * 60)
+
+        p, sol_db, sim_db = run_multi_stage(
+            phases=phases,
+            launch_lat_deg=28.5,
+            launch_lon_deg=0.,
+            launch_alt=0.0,
+            objective='max_final_mass',
+            target_orbit=orbit,
+            optimizer_tol=tol,
+            optimizer_max_iter=max_iter,
+            simulate=is_last,
+            restart_db=prev_sol_db,
+        )
+
+        prev_sol_db = str(sol_db)
+
+    return p, sol_db, sim_db
 
 
 def print_delta3_summary():
@@ -310,7 +336,7 @@ def print_delta3_summary():
 
 
 print_delta3_summary()
-p, sol_db, sim_db = run_delta3_gto()
+p, sol_db, sim_db = run_delta3_gto(init_db=None)
 print(f'\nSolution:   {sol_db}')
 print(f'Simulation: {sim_db}')
 
@@ -322,7 +348,7 @@ plot_eci_trajectory_zoomed(Path(sol_db), phase_names=phase_names)
 
 plot_multi_stage(sol_db, sim_db, phase_names=phase_names)
 
-phase_configs = make_delta3_phase_configs(use_atmosphere=False)
+phase_configs = make_delta3_phase_configs(CD=0.01, use_atmosphere=False)
 mass_drops = [m_drop_after_1, m_drop_after_2, m_drop_after_3, 0.0]
 
 print_design_results(p, phase_configs, mass_drops)

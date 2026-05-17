@@ -130,8 +130,10 @@ def build_stage_phase(
     # =========================================================
     phase.add_path_constraint('dir_norm_sq', equals=1.0, ref=1.0)
     phase.add_path_constraint('h', lower=-10.0)
-    phase.add_path_constraint('orbit_e', upper=1.01)
+    #phase.add_path_constraint('orbit_e', upper=1.01)
     phase.add_path_constraint('orbit_a', lower=0.)
+    #TODO!!!
+    phase.add_path_constraint('orbit_inc', lower=0.49, upper=0.51)
 
     phase.add_path_constraint('m_excess = m - m_dry', lower=0.0, ref=1.0e3)
     phase.add_boundary_constraint('m_init_check = m - m_dry - m_propellant',

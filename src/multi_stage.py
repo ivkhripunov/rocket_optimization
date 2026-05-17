@@ -90,6 +90,10 @@ def run_multi_stage(
     p.driver.opt_settings['max_iter'] = optimizer_max_iter
     p.driver.declare_coloring()
 
+    p.driver.opt_settings['mu_strategy'] = 'adaptive'
+    p.driver.opt_settings['mu_init'] = 1.0
+    p.driver.opt_settings['nlp_scaling_method'] = 'gradient-based'
+
     p.model.linear_solver = om.DirectSolver()
     p.setup(check=False)
 

@@ -30,58 +30,74 @@ def build_stage_phase(
     # Параметры
     # =========================================================
 
-    phase.set_time_options(
-        fix_initial=is_first_phase,
-        fix_duration=config.fix_duration,
-        duration_val=config.duration,
-        duration_bounds=config.duration_bounds,
-        duration_ref=config.duration,
-        units='s',
-    )
+    if config.fix_duration:
+        phase.set_time_options(
+            fix_initial=is_first_phase,
+            fix_duration=True,
+            duration_val=config.duration,
+            duration_ref=config.duration,
+            units='s',
+        )
+    else:
+        phase.set_time_options(
+            fix_initial=is_first_phase,
+            fix_duration=False,
+            duration_val=config.duration,
+            duration_bounds=config.duration_bounds,
+            duration_ref=config.duration,
+            units='s',
+        )
 
-    phase.add_parameter(
-        'thrust', units='N',
-        val=config.thrust,
-        opt=not config.fix_thrust,
-        lower=config.thrust_bounds[0],
-        upper=config.thrust_bounds[1],
-        ref=1e6,
-    )
+    if config.fix_thrust:
+        phase.add_parameter('thrust', units='N',
+                            val=config.thrust, opt=False, ref=1e6)
+    else:
+        phase.add_parameter('thrust', units='N',
+                            val=config.thrust, opt=True,
+                            lower=config.thrust_bounds[0],
+                            upper=config.thrust_bounds[1],
+                            ref=1e6)
 
-    phase.add_control('throttle',
-                      val=config.throttle,
-                      opt=not config.fix_throttle,
-                      lower=config.throttle_bounds[0],
-                      upper=config.throttle_bounds[1],
-                      ref=1.,
-                      continuity=True, rate_continuity=True)
+    if config.fix_throttle:
+        phase.add_parameter('throttle',
+                            val=config.throttle, opt=False)
+    else:
+        phase.add_control('throttle',
+                          val=config.throttle, opt=True,
+                          lower=config.throttle_bounds[0],
+                          upper=config.throttle_bounds[1],
+                          ref=1.0,
+                          continuity=True, rate_continuity=True)
 
-    phase.add_parameter(
-        'm_dry', units='kg',
-        val=config.m_dry,
-        opt=not config.fix_m_dry,
-        lower=config.m_dry_bounds[0],
-        upper=config.m_dry_bounds[1],
-        ref=1.0e3,
-    )
+    if config.fix_m_dry:
+        phase.add_parameter('m_dry', units='kg',
+                            val=config.m_dry, opt=False, ref=1e3)
+    else:
+        phase.add_parameter('m_dry', units='kg',
+                            val=config.m_dry, opt=True,
+                            lower=config.m_dry_bounds[0],
+                            upper=config.m_dry_bounds[1],
+                            ref=1e3)
 
-    phase.add_parameter(
-        'm_propellant', units='kg',
-        val=config.m_propellant,
-        opt=not config.fix_m_propellant,
-        lower=config.m_propellant_bounds[0],
-        upper=config.m_propellant_bounds[1],
-        ref=1.0e5,
-    )
+    if config.fix_m_propellant:
+        phase.add_parameter('m_propellant', units='kg',
+                            val=config.m_propellant, opt=False, ref=1e5)
+    else:
+        phase.add_parameter('m_propellant', units='kg',
+                            val=config.m_propellant, opt=True,
+                            lower=config.m_propellant_bounds[0],
+                            upper=config.m_propellant_bounds[1],
+                            ref=1e5)
 
-    phase.add_parameter(
-        'Isp', units='s',
-        val=config.Isp,
-        opt=not config.fix_Isp,
-        lower=config.Isp_bounds[0],
-        upper=config.Isp_bounds[1],
-        ref=300.0,
-    )
+    if config.fix_Isp:
+        phase.add_parameter('Isp', units='s',
+                            val=config.Isp, opt=False, ref=300.0)
+    else:
+        phase.add_parameter('Isp', units='s',
+                            val=config.Isp, opt=True,
+                            lower=config.Isp_bounds[0],
+                            upper=config.Isp_bounds[1],
+                            ref=300.0)
 
     # =========================================================
     # Состояния
@@ -115,6 +131,7 @@ def build_stage_phase(
     phase.add_path_constraint('dir_norm_sq', equals=1.0, ref=1.0)
     phase.add_path_constraint('h', lower=-10.0)
     phase.add_path_constraint('orbit_e', upper=1.01)
+    phase.add_path_constraint('orbit_a', lower=0.)
 
     phase.add_path_constraint('m_excess = m - m_dry', lower=0.0, ref=1.0e3)
     phase.add_boundary_constraint('m_init_check = m - m_dry - m_propellant',

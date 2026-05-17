@@ -185,7 +185,7 @@ def make_delta3_phase_configs(
         m_dry=M_DRY_PH4,
         m_propellant=STAGE2_PROP,
         Isp=ISP_PH4,
-        use_atmosphere=False,  # вакуум
+        use_atmosphere=True,  # вакуум
         CD=CD,
         S=4 * np.pi,
         nodes_per_interval=[4, 4],

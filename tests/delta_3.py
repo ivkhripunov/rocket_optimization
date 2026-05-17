@@ -1,28 +1,7 @@
-"""
-Миссия Delta III → ГТО (геостационарная переходная орбита).
-
-По отчёту, ракета моделируется как 4-фазная виртуальная ступень:
-  Фаза 1: 1 ступень + 6 ускорителей  (отделение 6 ускорителей в конце)
-  Фаза 2: 1 ступень + 3 ускорителя   (отделение 3 ускорителей в конце)
-  Фаза 3: только 1 ступень           (отделение сухой 1 ступени в конце)
-  Фаза 4: 2 ступень                  (выведение на ГТО, длительность свободна)
-
-Запуск с мыса Канаверал (28.5° N, −80.5°).
-
-Параметры Delta III (из таблицы 3 отчёта):
-  Ускоритель: m_total=19200 кг, m_prop=17010 кг, F=628500 Н, Isp=284 с
-  Ступень 1:  m_total=104380 кг, m_prop=95550 кг, F=1083100 Н, Isp=301.7 с
-  Ступень 2:  m_total=19300 кг, m_prop=16820 кг, F=110094 Н, Isp=462.4 с
-  Полезная нагрузка: 4164 кг
-
-Целевая орбита (ГТО):
-  a = 24500 км, e ≈ 0.73, i = 28.5°
-"""
-
 import numpy as np
 from src.phase_config import PhaseConfig
 from src.multi_stage import run_multi_stage
-from src.frame_converter import EARTH_RAD
+from src.target_orbit import TargetOrbit
 from src.stage_ode import G0
 from src.visualize import plot_eci_trajectory_3d, plot_eci_trajectory_zoomed, plot_multi_stage, print_design_results
 from pathlib import Path
@@ -109,7 +88,7 @@ m_initial_p4 = m_after_phase3 - m_drop_after_3  # ≈ STAGE2_TOTAL + PAYLOAD
 m_dry_phase4 = STAGE2_DRY + PAYLOAD  # минимум массы = сухая ст2 + ПН
 
 
-def make_delta3_phase_configs():
+def make_delta3_phase_configs(use_atmosphere: bool):
     """4 конфигурации виртуальных ступеней Delta III."""
 
     phase1 = PhaseConfig(
@@ -135,7 +114,7 @@ def make_delta3_phase_configs():
         m_propellant_bounds=(None, None),
         Isp_bounds=(None, None),
 
-        use_atmosphere=True,
+        use_atmosphere=use_atmosphere,
         q_heat_constraint=False,
         q_dyn_constraint=False,
         g_load_constraint=False,
@@ -171,7 +150,7 @@ def make_delta3_phase_configs():
         m_propellant_bounds=(None, None),
         Isp_bounds=(None, None),
 
-        use_atmosphere=True,
+        use_atmosphere=use_atmosphere,
         q_heat_constraint=False,
         q_dyn_constraint=False,
         g_load_constraint=False,
@@ -207,7 +186,7 @@ def make_delta3_phase_configs():
         m_propellant_bounds=(None, None),
         Isp_bounds=(None, None),
 
-        use_atmosphere=True,
+        use_atmosphere=use_atmosphere,
         q_heat_constraint=False,
         q_dyn_constraint=False,
         g_load_constraint=False,
@@ -243,7 +222,7 @@ def make_delta3_phase_configs():
         m_propellant_bounds=(None, None),
         Isp_bounds=(None, None),
 
-        use_atmosphere=True,
+        use_atmosphere=use_atmosphere,
         q_heat_constraint=False,
         q_dyn_constraint=False,
         g_load_constraint=False,
@@ -252,32 +231,33 @@ def make_delta3_phase_configs():
         CD=0.5,
         S=4 * 3.14,
 
-        num_segments=5
+        num_segments=10
     )
 
     return [phase1, phase2, phase3, phase4]
 
 
-def run_delta3_gto(optimize_design: bool = True):
-    phases = make_delta3_phase_configs()
+def run_delta3_gto():
 
-    a = 24_500_000
-    e = 0.73
-    i = 28.5
-    w = 130.5
-    raan = 269.8
+    phases = make_delta3_phase_configs(use_atmosphere=False)
+
+    GTO = TargetOrbit(
+        a=24_500_000,
+        e=0.73,
+        inc_deg=28.5,
+
+        a_bounds=(-500_000, +500_000),
+        e_bounds=(-0.02, +0.02),
+        inc_bounds_deg=(-0.5, +0.5),
+    )
 
     return run_multi_stage(
         phases=phases,
         launch_lat_deg=28.5,
-        launch_lon_deg=-80.5,
+        launch_lon_deg=0.,
         launch_alt=0.0,
         objective='max_final_mass',
-        target_a=a,
-        target_e=e,
-        target_inc_deg=i,
-        target_arg_periapsis_deg=w,
-        target_raan_deg=raan,
+        target_orbit=GTO,
         optimizer_tol=1.0e-4,
         optimizer_max_iter=1000,
         simulate=True,
@@ -342,7 +322,7 @@ plot_eci_trajectory_zoomed(Path(sol_db), phase_names=phase_names)
 
 plot_multi_stage(sol_db, sim_db, phase_names=phase_names)
 
-phase_configs = make_delta3_phase_configs()
+phase_configs = make_delta3_phase_configs(use_atmosphere=False)
 mass_drops = [m_drop_after_1, m_drop_after_2, m_drop_after_3, 0.0]
 
 print_design_results(p, phase_configs, mass_drops)

@@ -20,6 +20,7 @@ def run_multi_stage(
         optimizer_tol: float = 1.0e-4,
         optimizer_max_iter: int = 1000,
         simulate: bool = True,
+        restart_db: str = None,
 ):
     p = om.Problem()
     traj = dm.Trajectory()
@@ -173,7 +174,7 @@ def run_multi_stage(
     # =========================================================
     # Запуск
     # =========================================================
-    dm.run_problem(p, simulate=simulate)
+    dm.run_problem(p, simulate=simulate, restart=restart_db)
 
     sol_db = p.get_outputs_dir() / 'dymos_solution.db'
     if simulate and traj.sim_prob is not None:

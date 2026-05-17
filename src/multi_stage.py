@@ -174,7 +174,10 @@ def run_multi_stage(
     # =========================================================
     # Запуск
     # =========================================================
-    dm.run_problem(p, simulate=simulate, restart=restart_db)
+    if restart_db is not None:
+        dm.run_problem(p, simulate=simulate, restart=restart_db, make_plots=True)
+    else:
+        dm.run_problem(p, simulate=simulate, make_plots=True)
 
     sol_db = p.get_outputs_dir() / 'dymos_solution.db'
     if simulate and traj.sim_prob is not None:
